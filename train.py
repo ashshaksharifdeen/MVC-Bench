@@ -3,51 +3,32 @@ import torch
 import os
 import json
 
-
 from dassl.utils import set_random_seed, collect_env_info
 from dassl.config import get_cfg_default
 from dassl.engine import build_trainer
 from tools.logger import setup_logger
 
-
 # custom
 import datasets.oxford_pets
-import datasets.oxford_flowers
-import datasets.fgvc_aircraft
-import datasets.dtd
-import datasets.eurosat
-import datasets.stanford_cars
-import datasets.food101
-import datasets.sun397
-import datasets.caltech101
-import datasets.ucf101
-import datasets.imagenet
-
-import datasets.imagenet_sketch
-import datasets.imagenetv2
-import datasets.imagenet_a
-import datasets.imagenet_r
+import datasets.kather # Added by abhishek
+import datasets.digestpath # Added by abhishek
+import datasets.pannuke # Added by abhishek
+import datasets.covid
+import datasets.rsna18
+import datasets.aptos
+import datasets.eyepacs
+import datasets.messidor
+import datasets.messidor_2
 
 # few-shot CLIP
 import trainers.classification.base_learner
 import trainers.classification.coop
-import trainers.classification.cocoop
 import trainers.classification.zsclip
-import trainers.classification.maple
-import trainers.classification.vpt
-import trainers.classification.kgcoop
-import trainers.classification.proda
-import trainers.classification.taskres
-import trainers.classification.prograd
-import trainers.classification.promptsrc
-import trainers.classification.clip_adapter
-
-# calibration
-import trainers.calibration.tempscaling
+import trainers.classification.coop_medclip # ABHISHEK
+import trainers.classification.coop_biomedclip # ABHISHEK
 
 # evaluation
 import evaluators.vl_evaluator
-
 
 def print_args(args, cfg):
     print("***************")
@@ -61,7 +42,6 @@ def print_args(args, cfg):
     print("** Config **")
     print("************")
     print(cfg)
-
 
 def reset_cfg(cfg, args):
     if args.root:
@@ -97,52 +77,19 @@ def reset_cfg(cfg, args):
     # replace base classification evaluator with V-L evaluator
     cfg.TEST.EVALUATOR = 'VLClassification'
 
-    # calibration 
-    if args.calibration_config:
-        
-        calibration_cfgs = json.loads(args.calibration_config)
-        args.calibration_config = calibration_cfgs
-        print(calibration_cfgs, 'calibration_cfgs')
-
-        if calibration_cfgs['BASE_CALIBRATION_MODE']:
-            cfg.CALIBRATION.BASE_CALIBRATION_MODE = calibration_cfgs['BASE_CALIBRATION_MODE']
-
-            if calibration_cfgs['SCALING_CONFIG']:
-                cfg.merge_from_file(calibration_cfgs['SCALING_CONFIG'])
-                fix_cfg_from_calibraion(cfg)
-                cfg.CALIBRATION.SCALING.IF_SCALING = True
-
-            if calibration_cfgs['BIN_CALIBRATOR_NAME']:
-                cfg.CALIBRATION.BIN.BIN_CALIBRATOR_NAME = calibration_cfgs['BIN_CALIBRATOR_NAME']
-            
-        # scaling
-        if args.base_dir:
-            cfg.CALIBRATION.SCALING.BASE_DIR = args.base_dir
-
-        if args.base_learner:
-            cfg.CALIBRATION.SCALING.BASE_LEARNER = args.base_learner
-
-        if calibration_cfgs['IF_DAC']:
-            cfg.CALIBRATION.DAC.IF_DAC= calibration_cfgs['IF_DAC']
-
-        if calibration_cfgs['IF_PROCAL']:
-            cfg.CALIBRATION.PROCAL.IF_PROCAL= calibration_cfgs['IF_PROCAL']
-
-
-
-
 def extend_cfg(cfg):
     """
     Add new config variables.
-
-    E.g.
-        from yacs.config import CfgNode as CN
-        cfg.TRAINER.MY_MODEL = CN()
-        cfg.TRAINER.MY_MODEL.PARAM_A = 1.
-        cfg.TRAINER.MY_MODEL.PARAM_B = 0.5
-        cfg.TRAINER.MY_MODEL.PARAM_C = False
     """
     from yacs.config import CfgNode as CN
+
+    # Add MODEL configs at the very start
+    cfg.MODEL = CN()
+    cfg.MODEL.NAME = ""      # For model type (clip, plip, quiltnet)
+    cfg.MODEL_ROOT = ""      # For model path
+    cfg.MODEL.BACKBONE = CN()  # Create BACKBONE as a CN
+    cfg.MODEL.BACKBONE.NAME = ""  # For backbone name
+    cfg.DATASET.SUBSAMPLE_CLASSES = "all" 
 
     # Config for CoOp
     cfg.TRAINER.COOP = CN()
@@ -152,128 +99,76 @@ def extend_cfg(cfg):
     cfg.TRAINER.COOP.PREC = "fp16"  # fp16, fp32, amp
     cfg.TRAINER.COOP.CLASS_TOKEN_POSITION = "end"  # 'middle' or 'end' or 'front'
 
-    # Config for CoCoOp
-    cfg.TRAINER.COCOOP = CN()
-    cfg.TRAINER.COCOOP.N_CTX = 16  # number of context vectors
-    cfg.TRAINER.COCOOP.CTX_INIT = ""  # initialization words
-    cfg.TRAINER.COCOOP.PREC = "fp16"  # fp16, fp32, amp
+    # CoOp Loss config (ABHISHEK)
+    cfg.TRAINER.COOP.LOSS = CN()
+    cfg.TRAINER.COOP.LOSS.ENABLED_LOSSES = ['CE']  # Default to CE only
+    
+    # CE Loss config
+    cfg.TRAINER.COOP.LOSS.CE = CN()
+    cfg.TRAINER.COOP.LOSS.CE.WEIGHT = 1.0
+    
+    # DCA Loss config
+    cfg.TRAINER.COOP.LOSS.DCA = CN()
+    cfg.TRAINER.COOP.LOSS.DCA.WEIGHT = 15.0
 
-    # Config for MaPLe
-    cfg.TRAINER.MAPLE = CN()
-    cfg.TRAINER.MAPLE.N_CTX = 2  # number of context vectors
-    cfg.TRAINER.MAPLE.CTX_INIT = "a photo of a"  # initialization words
-    cfg.TRAINER.MAPLE.PREC = "fp16"  # fp16, fp32, amp
-    cfg.TRAINER.MAPLE.PROMPT_DEPTH = 9 # Max 12, minimum 0, for 1 it will act as shallow MaPLe (J=1)
-    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+    # MDCA Loss config
+    cfg.TRAINER.COOP.LOSS.MDCA = CN()
+    cfg.TRAINER.COOP.LOSS.MDCA.WEIGHT = 1.0
 
-    # Config for Prograd
-    cfg.TRAINER.PROGRAD = CN()
-    cfg.TRAINER.PROGRAD.N_CTX = 16  # number of context vectors
-    cfg.TRAINER.PROGRAD.CTX_INIT = True  # initialization words
-    cfg.TRAINER.PROGRAD.PREC = "fp16"  # fp16, fp32, amp
-    cfg.TRAINER.PROGRAD.CSC = False  # class-specific context
-    cfg.TRAINER.PROGRAD.CLASS_TOKEN_POSITION = "end"
-    cfg.TRAINER.PROGRAD.LAMBDA = 1.0
-    cfg.TRAINER.PROGRAD.T = 1.0
-    cfg.TRAINER.PROGRAD.LOSS_NAME = "prograd" 
+    # Focal Loss config
+    cfg.TRAINER.COOP.LOSS.FL = CN()
+    cfg.TRAINER.COOP.LOSS.FL.WEIGHT = 1.0
+    cfg.TRAINER.COOP.LOSS.FL.GAMMA = 3.0
 
-    # Config for KgCoOp
-    cfg.TRAINER.KGCOOP = CN()
-    cfg.TRAINER.KGCOOP.N_CTX = 16  # number of context vectors
-    cfg.TRAINER.KGCOOP.CTX_INIT = True  # initialization words
-    cfg.TRAINER.KGCOOP.W = 8.0  # fp16, fp32, amp
-    cfg.TRAINER.KGCOOP.PREC = "fp16"  # fp16, fp32, amp
-    cfg.TRAINER.KGCOOP.CSC = False  # class-specific context
-    cfg.TRAINER.KGCOOP.CLASS_TOKEN_POSITION = "end"
+    # Label Smoothing config
+    cfg.TRAINER.COOP.LOSS.LS = CN()
+    cfg.TRAINER.COOP.LOSS.LS.WEIGHT = 1.0
+    cfg.TRAINER.COOP.LOSS.LS.ALPHA = 0.05 
 
-    # Config for ProDA
-    cfg.TRAINER.PRODA = CN()
-    cfg.TRAINER.PRODA.N_CTX = 16  # number of context vectors
-    cfg.TRAINER.PRODA.N_PROMPT = 32 
-    cfg.TRAINER.PRODA.PROMPT_BS = 4 
-    cfg.TRAINER.PRODA.PREC = "fp16"  # fp16, fp32, amp
-    cfg.TRAINER.PRODA.ALPHA = 0.1
-    # cfg.TRAINER.PRODA.CSC = False  # class-specific context
-    # cfg.TRAINER.PRODA.CLASS_TOKEN_POSITION = "end"
+    # MMCE Loss
+    cfg.TRAINER.COOP.LOSS.MMCE = CN()
+    cfg.TRAINER.COOP.LOSS.MMCE.WEIGHT = 1.0
 
-    # Config for PromptSRC
-    cfg.TRAINER.PROMPTSRC = CN()
-    cfg.TRAINER.PROMPTSRC.N_CTX_VISION = 4  # number of context vectors at the vision branch
-    cfg.TRAINER.PROMPTSRC.N_CTX_TEXT = 4  # number of context vectors at the language branch
-    cfg.TRAINER.PROMPTSRC.CTX_INIT = "a photo of a"  # initialization words
-    cfg.TRAINER.PROMPTSRC.PREC = "fp16"  # fp16, fp32, amp
-    cfg.TRAINER.PROMPTSRC.PROMPT_DEPTH_VISION = 9  # Max 12, minimum 0, for 0 it will be using shallow IVLP prompting (J=1)
-    cfg.TRAINER.PROMPTSRC.PROMPT_DEPTH_TEXT = 9  # Max 12, minimum 0, for 0 it will be using shallow IVLP prompting (J=1)
-    cfg.TRAINER.PROMPTSRC.TEXT_LOSS_WEIGHT = 25
-    cfg.TRAINER.PROMPTSRC.IMAGE_LOSS_WEIGHT = 10
-    cfg.TRAINER.PROMPTSRC.GPA_MEAN = 15
-    cfg.TRAINER.PROMPTSRC.GPA_STD = 1
-    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+    # Angular Seperation LOSS
+    cfg.TRAINER.COOP.LOSS.AS = CN()
+    cfg.TRAINER.COOP.LOSS.AS.WEIGHT = 1.0
 
-    # Config for TaskRes
-    cfg.TRAINER.TaskRes = CN()
-    cfg.TRAINER.TaskRes.N_CTX = 16  # number of context vectors
-    cfg.TRAINER.TaskRes.CSC = False  # class-specific context
-    cfg.TRAINER.TaskRes.CTX_INIT = ""  # initialization words
-    cfg.TRAINER.TaskRes.PREC = "fp16"  # fp16, fp32, amp
-    cfg.TRAINER.TaskRes.CLASS_TOKEN_POSITION = "end"  # 'middle' or 'end' or 'front'
-    cfg.TRAINER.TaskRes.RESIDUAL_SCALE = 1.0
-    cfg.TRAINER.TaskRes.ENHANCED_BASE = 'none'
+    # Smoothed Accuracy and Confidence Matching Loss (SMAC)
+    cfg.TRAINER.COOP.LOSS.SMAC = CN()
+    cfg.TRAINER.COOP.LOSS.SMAC.WEIGHT = 1.0
+    cfg.TRAINER.COOP.LOSS.SMAC.ALPHA = 0.05
 
-    # Config for adapter
-    cfg.TRAINER.CLIP_ADAPTER = CN()
-    cfg.TRAINER.CLIP_ADAPTER.RATIO = 0.2
-    cfg.TRAINER.CLIP_ADAPTER.CTX_INIT = "a photo of a"  # initialization words
+    # ECCV24 Penalty Loss
+    cfg.TRAINER.COOP.LOSS.ECCV_PENALTY = CN()
+    cfg.TRAINER.COOP.LOSS.ECCV_PENALTY.WEIGHT = 10.0
 
-    # Config for calibration
+    # ECCV24 ZeroShot Loss
+    cfg.TRAINER.COOP.LOSS.ECCV_ZS = CN()
+    cfg.TRAINER.COOP.LOSS.ECCV_ZS.WEIGHT = 1.0
+
+    # Margin-based Logit Suppression Loss (MbLS)
+    cfg.TRAINER.COOP.LOSS.MBLS = CN()
+    cfg.TRAINER.COOP.LOSS.MBLS.WEIGHT = 1.0
+    cfg.TRAINER.COOP.LOSS.MBLS.MARGIN = 10.0
+    cfg.TRAINER.COOP.LOSS.MBLS.ALPHA = 0.1
+
+    # LogitNorm Loss
+    cfg.TRAINER.COOP.LOSS.LOGITNORM = CN()
+    cfg.TRAINER.COOP.LOSS.LOGITNORM.WEIGHT = 1.0
+    cfg.TRAINER.COOP.LOSS.LOGITNORM.TEMPERATURE = 1.0
+
+    # MARGIN_MEAN_VAR Loss config
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR = CN()
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR.WEIGHT = 1.0
+
+    # TEXT_MOMENT_MATCHING Loss config
+    cfg.TRAINER.COOP.LOSS.TEXT_MOMENT_MATCHING = CN()
+    cfg.TRAINER.COOP.LOSS.TEXT_MOMENT_MATCHING.WEIGHT = 5.0
+
+    # IMPORTANT: Keep metrics config for evaluator
     cfg.CALIBRATION = CN()
-    cfg.CALIBRATION.BASE_CALIBRATION_MODE = None # scaling_based, bin_based
-
-    # config for scaling-based calibration
-    cfg.CALIBRATION.SCALING = CN()
-    cfg.CALIBRATION.SCALING.IF_SCALING = False
-    cfg.CALIBRATION.SCALING.BASE_DIR = ""
-    cfg.CALIBRATION.SCALING.INIT_TEMP = 4.6052 # original CLIP temp
-    cfg.CALIBRATION.SCALING.BASE_LEARNER = 'CoOp' # CoOp CoCoOp,....
-    cfg.CALIBRATION.SCALING.MODE = 'TempScaling' # TempScaling/ ParameterizedTempScaling
-    cfg.CALIBRATION.SCALING.BASE_EPOCH = 1 # origin tuned epoch for loade the model
-    cfg.CALIBRATION.SCALING.EPOCH = 20 # epoch for scaling calirbation
-    cfg.CALIBRATION.SCALING.LR = 5e-2 # learning rate for scaling calibration
-
-    # config for parameterized temp scaling calibration
-    cfg.CALIBRATION.P_TS = CN()
-    cfg.CALIBRATION.P_TS.N_LAYERS = 2
-    cfg.CALIBRATION.P_TS.N_NODES = 5
-    cfg.CALIBRATION.P_TS.TOP_K_LOGITS = 10 
-
-
-    # config for bin-based calibration
-    cfg.CALIBRATION.BIN = CN()
-    cfg.CALIBRATION.BIN.BIN_CALIBRATOR_NAME = None # histogram_binning, isotonic_regression, multi_isotonic_regression
-
-
-    # Config for task difficulty aware calibration
-    cfg.CALIBRATION.DAC = CN()
-    cfg.CALIBRATION.DAC.IF_DAC = False
-    cfg.CALIBRATION.DAC.K = 5 # K text nearest neighbor text
-
-    # Config for proximity-informed calibration
-    cfg.CALIBRATION.PROCAL = CN()
-    cfg.CALIBRATION.PROCAL.IF_PROCAL = False #  density estimator / bin-mean-shift
-    cfg.CALIBRATION.PROCAL.IMAGE_K = 5 # calculation the knn distance for proximity-base calibration, for small dataset, set 5 , for imagenet, set 10
-
-    # config for calibration metrics
     cfg.CALIBRATION.METRICS = CN()
-    cfg.CALIBRATION.METRICS.ECE_BINS = 10 # the number of bins for ece calculation
-    cfg.CALIBRATION.METRICS.PIECE_BINS = 10 # the number of nearest neighbor in piece calculation
-
-
-def fix_cfg_from_calibraion(cfg): 
-    cfg.OPTIM.LR = cfg.CALIBRATION.SCALING.LR
-    cfg.CALIBRATION.SCALING.BASE_EPOCH = cfg.OPTIM.MAX_EPOCH
-    cfg.OPTIM.MAX_EPOCH = cfg.CALIBRATION.SCALING.EPOCH
-
-
+    cfg.CALIBRATION.METRICS.ECE_BINS = 10  # the number of bins for ece calculation
 
 def setup_cfg(args):
     cfg = get_cfg_default()
@@ -298,7 +193,6 @@ def setup_cfg(args):
 
     return cfg
 
-
 def main(args):
     cfg = setup_cfg(args)
     if cfg.SEED >= 0:
@@ -306,55 +200,27 @@ def main(args):
         set_random_seed(cfg.SEED)
     
     base_dir = cfg.OUTPUT_DIR
-    base_name = 'log'
-
-    if cfg.CALIBRATION.SCALING.IF_SCALING:
-        base_name = base_name + '_' + str(cfg.CALIBRATION.SCALING.MODE)
-
-    if cfg.CALIBRATION.BIN.BIN_CALIBRATOR_NAME:
-        base_name = base_name + '_' + str(cfg.CALIBRATION.BIN.BIN_CALIBRATOR_NAME)
-
-    if cfg.CALIBRATION.DAC.IF_DAC:
-        base_name = base_name + '_dac'
-
-    if cfg.CALIBRATION.PROCAL.IF_PROCAL:
-        base_name = base_name + '_procal'
-        
-    base_name = base_name +'.txt'
+    base_name = 'log.txt'
 
     setup_logger(os.path.join(base_dir, base_name))
-
 
     if torch.cuda.is_available() and cfg.USE_CUDA:
         torch.backends.cudnn.benchmark = True
 
-    # calibration or not
-    if cfg.CALIBRATION.SCALING.IF_SCALING:
-        cfg = cfg.clone()
-        cfg.defrost()
-        base_learner = cfg.TRAINER.NAME
-        cfg.CALIBRATION.SCALING.BASE_LEARNER = base_learner
-        cfg.TRAINER.NAME = cfg.CALIBRATION.SCALING.MODE # use calibration trainer instand of base few-shot trainer
-        trainer = build_trainer(cfg)
-        cfg.TRAINER.NAME = args.trainer # replace with origin trainer
-    else:
-        trainer = build_trainer(cfg)
+    trainer = build_trainer(cfg)
 
     print_args(args, cfg)
     print("Collecting env info ...")
     print("** System info **\n{}\n".format(collect_env_info()))
 
-
     if args.eval_only:
-        # trainer.load_model(args.model_dir, epoch=args.load_epoch)
-        trainer.load_model(args.model_dir, epoch=cfg.OPTIM.MAX_EPOCH)
+        trainer.load_model(args.model_dir, epoch=args.load_epoch)
         print(args.load_epoch, 'load_epochload_epochload_epoch')
         trainer.test()
         return
 
     if not args.no_train:
         trainer.train()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -387,12 +253,6 @@ if __name__ == "__main__":
         default="",
         help="path to config file for dataset setup",
     )
-    parser.add_argument(
-        "--calibration-config-file",
-        type=str,
-        default="",
-        help="path to config file for calibration",
-    )
     parser.add_argument("--trainer", type=str, default="", help="name of trainer")
     parser.add_argument("--backbone", type=str, default="", help="name of CNN backbone")
     parser.add_argument("--head", type=str, default="", help="name of head")
@@ -404,25 +264,10 @@ if __name__ == "__main__":
         help="load model from this directory for eval-only mode",
     )
     parser.add_argument(
-        "--base-dir",
-        type=str,
-        default="",
-        help="load model from few-shot learner",
-    )
-    parser.add_argument(
-        "--base-learner",
-        type=str,
-        default="",
-        help="base learner",
-    )
-    parser.add_argument(
         "--load-epoch", type=int, help="load model weights at this epoch for evaluation"
     )
     parser.add_argument(
         "--no-train", action="store_true", help="do not call trainer.train()"
-    )
-    parser.add_argument(
-        "--calibration-config", type=str, help="calibration config"
     )
     parser.add_argument(
         "opts",

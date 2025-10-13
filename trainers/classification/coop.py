@@ -4,10 +4,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.cuda.amp import GradScaler, autocast
-from torch.nn import functional as F
-from torch.cuda.amp import GradScaler, autocast
 import numpy as np
-from clip import clip
+from models.clip import clip
 import torch.nn.functional as F
 
 from tqdm import tqdm
@@ -17,30 +15,48 @@ from dassl.utils import load_pretrained_weights, load_checkpoint
 from dassl.optim import build_optimizer, build_lr_scheduler
 
 from trainers.classification.base_learner import VLBaseLearner
-from clip import clip
-from clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
+from models.clip import clip
+from models.clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
+from .losses import LossRegistry # ABHISHEK
 
 _tokenizer = _Tokenizer()
 
 
 def load_clip_to_cpu(cfg):
     backbone_name = cfg.MODEL.BACKBONE.NAME
-    url = clip._MODELS[backbone_name]
-    model_path = clip._download(url)
-
+    model_name = cfg.MODEL.NAME if hasattr(cfg.MODEL, 'NAME') else 'clip'
+    
+    if model_name == 'clip':
+        # Original CLIP loading
+        print("\n\n\nUsing CLIP\n\n\n")
+        url = clip._MODELS[backbone_name]
+        model_path = clip._download(url)
+    elif model_name == 'plip':
+        # PLIP path
+        print("\n\n\nUsing PLIP\n\n\n")
+        model_path = osp.join(cfg.MODEL_ROOT, "plip", 'plip_vit_b32.pt')
+    elif model_name == 'quiltnet':
+        # QuiltNet path
+        print("\n\n\nUsing QuiltNet\n\n\n")
+        model_path = osp.join(cfg.MODEL_ROOT, "quiltnet", 'quiltnet_b32.pt')
+    else:
+        raise ValueError(f"Model '{model_name}' not supported. Choose 'clip' or 'plip' or 'quiltnet")
     try:
         # loading JIT archive
         model = torch.jit.load(model_path, map_location="cpu").eval()
         state_dict = None
-
     except RuntimeError:
         state_dict = torch.load(model_path, map_location="cpu")
-    design_details = {"trainer": 'CoOp',
-                      "vision_depth": 0,
-                      "language_depth": 0, "vision_ctx": 0,
-                      "language_ctx": 0}
-    model = clip.build_model(state_dict or model.state_dict(), design_details)
 
+    design_details = {
+        "trainer": 'CoOp',
+        "vision_depth": 0,
+        "language_depth": 0, 
+        "vision_ctx": 0,
+        "language_ctx": 0
+    }
+    
+    model = clip.build_model(state_dict or model.state_dict(), design_details)
     return model
 
 
@@ -123,7 +139,7 @@ class PromptLearner(nn.Module):
         self.n_ctx = n_ctx
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor
         self.name_lens = name_lens
-        self.class_token_position = cfg.TRAINER.COOP.CLASS_TOKEN_POSITION
+        self.class_token_position = cfg.TRAINER.COOP.CLASS_TOKEN_POSITION if hasattr(cfg.TRAINER.COOP, "CLASS_TOKEN_POSITION") else "end"
 
     def forward(self):
         ctx = self.ctx
@@ -191,8 +207,9 @@ class PromptLearner(nn.Module):
 
         return prompts
 
-
-class CustomCLIP(nn.Module):
+# Add CustomCLIP class for prompt learning
+# Add CustomCLIP class for prompt learning
+class CustomCLIP(nn.Module): # Changed for ECCV
     def __init__(self, cfg, classnames, clip_model):
         super().__init__()
         self.prompt_learner = PromptLearner(cfg, classnames, clip_model)
@@ -201,8 +218,96 @@ class CustomCLIP(nn.Module):
         self.text_encoder = TextEncoder(clip_model)
         self.logit_scale = clip_model.logit_scale
         self.dtype = clip_model.dtype
+        
+        # loss configuration
+        self.enabled_losses = cfg.TRAINER.COOP.LOSS.ENABLED_LOSSES
+        # Store cfg for loss functions
+        self.cfg = cfg
+        # Initialize weights in LossRegistry
+        LossRegistry.init_weights(cfg)
 
-    def forward(self, image, label=None):
+    def compute_losses(self, logits, label, text_features=None, zero_shot_logits=None, zero_shot_text_features=None):
+        """
+        Compute all enabled losses and return their weighted sum
+        
+        Args:
+            logits: Model predictions (batch_size, num_classes)
+            label: Ground truth labels (batch_size,)
+            text_features: Text embeddings from prompt learner
+            zero_shot_logits: Zero-shot model predictions for ECCV losses
+            zero_shot_text_features: Zero-shot text features for TEXT_MOMENT_MATCHING
+        
+        Returns:
+            losses: Dictionary containing individual and total losses
+        """
+        losses = {}
+        total_loss = 0.0
+        
+        # Handle the case where ECCV losses are enabled but zero_shot_logits are not provided
+        eccv_losses_requested = set(['ECCV_PENALTY', 'ECCV_ZS']).intersection(self.enabled_losses)
+        active_losses = self.enabled_losses.copy()
+        
+        # If ECCV losses are requested but zero_shot_logits is None, remove them from active losses
+        if eccv_losses_requested and zero_shot_logits is None:
+            for loss_name in eccv_losses_requested:
+                active_losses.remove(loss_name)
+            print(f"\nWARNING: Requested ECCV losses {eccv_losses_requested} disabled because zero_shot_logits not provided!")
+        
+        # Add verification for ECCV losses when they are provided
+        if eccv_losses_requested and zero_shot_logits is not None and not hasattr(self, 'eccv_verified'):
+            print(f"\nECCV losses using zero-shot logits with shape: {zero_shot_logits.shape}")
+            self.eccv_verified = True
+        
+        # Process all active losses
+        for loss_name in active_losses:
+            loss_fn = LossRegistry.get_loss(loss_name)
+            if loss_fn is not None:
+                # Handle different types of losses
+                if loss_name == 'AS':
+                    # Feature-based loss
+                    if text_features is not None:
+                        loss_value = loss_fn(text_features)
+                    else:
+                        continue
+                elif loss_name in ['FL', 'LS', 'SMAC']:
+                    # Losses that need config parameters
+                    loss_value = loss_fn(logits, label, cfg=self.cfg)
+                elif loss_name in ['ECCV_PENALTY', 'ECCV_ZS']:
+                    # Losses that need zero-shot logits
+                    loss_value = loss_fn(logits, label, zero_shot_logits=zero_shot_logits)
+                elif loss_name == 'TEXT_MOMENT_MATCHING':
+                    # Needs both tuned and zero-shot text features
+                    if text_features is None or zero_shot_text_features is None:
+                        print(f"WARNING: Required features missing for {loss_name}")
+                        continue
+                    loss_value = loss_fn(logits, label, text_features=text_features, 
+                                        zero_shot_text_features=zero_shot_text_features)
+                elif loss_name == 'MARGIN_MEAN_VAR':
+                    # Direct use with logits and labels
+                    loss_value = loss_fn(logits, label)
+                
+                elif loss_name == 'MDCA':
+                    # Direct use with logits and labels
+                    loss_value = loss_fn(logits, label)  
+                elif loss_name == 'MBLS':
+                    # Direct use with logits and labels
+                    loss_value = loss_fn(logits, label)
+                elif loss_name == 'LS':
+                    # Direct use with logits and labels
+                    loss_value = loss_fn(logits, label)            
+                else:
+                    # Standard losses
+                    loss_value = loss_fn(logits, label)
+                    
+                # Weight and accumulate loss
+                weight = LossRegistry.get_weight(loss_name)
+                losses[f'{loss_name}_loss'] = loss_value
+                total_loss += weight * loss_value
+                
+        losses['loss'] = total_loss
+        return losses
+
+    def forward(self, image, label=None, zero_shot_logits=None, zero_shot_text_features=None):
         image_features = self.image_encoder(image.type(self.dtype))
 
         prompts = self.prompt_learner()
@@ -213,17 +318,17 @@ class CustomCLIP(nn.Module):
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         logit_scale = self.logit_scale.exp()
-        # logit_scale = 120
         logits = logit_scale * image_features @ text_features.t()
 
         if self.prompt_learner.training:
-            return F.cross_entropy(logits, label)
-        
+            return self.compute_losses(logits, label, text_features=text_features,
+                                      zero_shot_logits=zero_shot_logits,
+                                      zero_shot_text_features=zero_shot_text_features)
+
         return logits, image_features, text_features
 
-
 @TRAINER_REGISTRY.register()
-class CoOp(VLBaseLearner):
+class CoOp(VLBaseLearner): # Changed for ECCV
     """Context Optimization (CoOp).
 
     Learning to Prompt for Vision-Language Models
@@ -232,6 +337,14 @@ class CoOp(VLBaseLearner):
 
     def check_cfg(self, cfg):
         assert cfg.TRAINER.COOP.PREC in ["fp16", "fp32", "amp"]
+        
+        # Set default for class token position if not present
+        if not hasattr(cfg.TRAINER.COOP, "CLASS_TOKEN_POSITION"):
+            cfg.TRAINER.COOP.CLASS_TOKEN_POSITION = "end"
+            
+        # Check if CSC exists
+        if not hasattr(cfg.TRAINER.COOP, "CSC"):
+            cfg.TRAINER.COOP.CSC = False
 
     def build_model(self):
         cfg = self.cfg
@@ -244,31 +357,75 @@ class CoOp(VLBaseLearner):
             # CLIP's default precision is fp16
             clip_model.float()
 
-        print("Building custom CLIP")
+        print("Building CustomCLIP with learnable prompts (CoOp)")
         self.model = CustomCLIP(cfg, classnames, clip_model)
-
+        
         print("Turning off gradients in both the image and the text encoder")
         for name, param in self.model.named_parameters():
             if "prompt_learner" not in name:
                 param.requires_grad_(False)
+                
+        # Only optimize the prompt learner
+        params_to_optimize = self.model.prompt_learner
+        model_to_register = "prompt_learner"
+        component_to_register = self.model.prompt_learner
 
-        if cfg.MODEL.INIT_WEIGHTS:
+        if getattr(cfg.MODEL, 'INIT_WEIGHTS', None) and hasattr(self.model, 'prompt_learner'):
             load_pretrained_weights(self.model.prompt_learner, cfg.MODEL.INIT_WEIGHTS)
 
         self.model.to(self.device)
-        # NOTE: only give prompt_learner to the optimizer
-        self.optim = build_optimizer(self.model.prompt_learner, cfg.OPTIM)
+        
+        # Build optimizer for the appropriate parameters
+        self.optim = build_optimizer(params_to_optimize, cfg.OPTIM)
         self.sched = build_lr_scheduler(self.optim, cfg.OPTIM)
-        self.register_model("prompt_learner", self.model.prompt_learner, self.optim, self.sched)
+        self.register_model(model_to_register, component_to_register, self.optim, self.sched)
 
         self.scaler = GradScaler() if cfg.TRAINER.COOP.PREC == "amp" else None
 
-        # Note that multi-gpu training could be slow because CLIP's size is
-        # big, which slows down the copy operation in DataParallel
+        # Check if we need the zero-shot model (for ECCV losses or TEXT_MOMENT_MATCHING)
+        if hasattr(cfg.TRAINER.COOP, 'LOSS') and hasattr(cfg.TRAINER.COOP.LOSS, 'ENABLED_LOSSES'):
+            need_zs_model = any(loss in cfg.TRAINER.COOP.LOSS.ENABLED_LOSSES for loss in ['ECCV_PENALTY', 'ECCV_ZS', 'TEXT_MOMENT_MATCHING'])
+        else:
+            need_zs_model = False
+        
+        # Initialize zero-shot model only if needed
+        if need_zs_model:
+            print("\n" + "="*80)
+            print("INITIALIZING ZERO-SHOT MODEL FOR CALIBRATION LOSSES")
+            print("="*80)
+            
+            from trainers.classification.zsclip import ZeroshotCLIP
+            self.zeroshot_model = ZeroshotCLIP(cfg)
+            self.zeroshot_model.cfg = self.cfg
+            self.zeroshot_model.dm = self.dm
+            self.zeroshot_model.device = self.device
+            
+            # Add debug info before building model
+            print(f"Dataset: {self.cfg.DATASET.NAME}")
+            print(f"Model type: {self.cfg.MODEL.NAME}")
+            print(f"Backbone: {self.cfg.MODEL.BACKBONE.NAME}")
+            
+            # Build the zero-shot model
+            self.zeroshot_model.build_model()
+            
+            # After building, verify the prompts and template
+            from trainers.classification.zsclip import CUSTOM_TEMPLATES
+            dataset_name = self.cfg.DATASET.NAME.lower()
+            template = CUSTOM_TEMPLATES.get(dataset_name, "An image of {}.")
+            print(f"\nTemplate used: '{template}'")
+            print(f"Zero-shot model type: {getattr(self.zeroshot_model, 'model_type', 'standard')}")
+            print("="*80 + "\n")
+        else:
+            self.zeroshot_model = None
+            print("\n" + "="*80)
+            print("SKIPPING ZERO-SHOT MODEL INITIALIZATION (NOT NEEDED FOR ENABLED LOSSES)")
+            print("="*80 + "\n")
+
+        # Multi-GPU handling
         device_count = torch.cuda.device_count()
         if device_count > 1:
             print(f"Multiple GPUs detected (n_gpus={device_count}), use all of them!")
-            # self.model = nn.DataParallel(self.model)
+            # For prompt learning, only parallelize the text encoder
             self.model.text_encoder = nn.DataParallel(self.model.text_encoder)
 
     def forward_backward(self, batch):
@@ -278,23 +435,69 @@ class CoOp(VLBaseLearner):
         optim = self.optim
         scaler = self.scaler
 
+        # Get the list of enabled losses
+        enabled_losses = model.enabled_losses if not hasattr(model, 'module') else model.module.enabled_losses
+        
+        # Check if we need zero-shot features
+        need_zs_logits = any(loss in enabled_losses for loss in ['ECCV_PENALTY', 'ECCV_ZS'])
+        need_zs_text_features = 'TEXT_MOMENT_MATCHING' in enabled_losses
+        
+        # Only compute zero-shot features if needed
+        zs_logits = None
+        zs_text_features = None
+        
+        if (need_zs_logits or need_zs_text_features) and self.zeroshot_model is not None:
+            with torch.no_grad():
+                if need_zs_logits:
+                    zs_logits, _, _ = self.zeroshot_model.model_inference(image)
+                    
+                    # Verify zero-shot logits in first training batch
+                    if self.batch_idx == 0 and self.epoch == 0:
+                        print("\n" + "="*80)
+                        print("VERIFYING ZERO-SHOT LOGITS FOR ECCV LOSSES")
+                        print(f"Zero-shot logits shape: {zs_logits.shape}")
+                        print(f"Min/Max values: {zs_logits.min().item():.4f}/{zs_logits.max().item():.4f}")
+                        
+                        # Print sample predictions
+                        sample_idx = 0
+                        print(f"\nSample image zero-shot logits:")
+                        for i, logit in enumerate(zs_logits[sample_idx]):
+                            if i < 5 or i > zs_logits.shape[1] - 5:  # Just print first and last 5 classes
+                                class_name = self.dm.dataset.classnames[i]
+                                print(f"  Class '{class_name}': {logit.item():.4f}")
+                        print("="*80 + "\n")
+                
+                if need_zs_text_features:
+                    # Get the text features from zero-shot model for TEXT_MOMENT_MATCHING
+                    if hasattr(self.zeroshot_model, 'text_features'):
+                        zs_text_features = self.zeroshot_model.text_features
+                    else:
+                        print("WARNING: Zero-shot model lacks text_features attribute")
+                        zs_text_features = None
+
         prec = self.cfg.TRAINER.COOP.PREC
         if prec == "amp":
             with autocast():
-                loss = model(image, label)
+                losses = model(image, label, zero_shot_logits=zs_logits, 
+                            zero_shot_text_features=zs_text_features)
             optim.zero_grad()
-            scaler.scale(loss).backward()
+            scaler.scale(losses['loss']).backward()
             scaler.step(optim)
             scaler.update()
         else:
-            loss = model(image, label)
+            losses = model(image, label, zero_shot_logits=zs_logits,
+                        zero_shot_text_features=zs_text_features)
             optim.zero_grad()
-            loss.backward()
+            losses['loss'].backward()
             optim.step()
-
-        loss_summary = {
-            "loss": loss.item()
-        }
+        
+        # Build loss summary to handle all enabled losses
+        loss_summary = {'loss': losses['loss'].item()}
+        
+        for loss_name in enabled_losses:
+            loss_key = f'{loss_name}_loss'
+            if loss_key in losses:
+                loss_summary[loss_key] = losses[loss_key].item()
 
         if (self.batch_idx + 1) == self.num_batches:
             self.update_lr()

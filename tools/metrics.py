@@ -22,7 +22,6 @@ from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.metrics import average_precision_score, roc_auc_score, auc
 import sys
 from os import path
-# from KDEpy import FFTKDE
 
 import torch
 import torch.nn as nn
@@ -234,3 +233,87 @@ def AdaptiveECE(conf, pred, gt, conf_bin_num=10):
     ace = (np.abs(group_acc - group_confs) * counts / len(df)).sum()
         
     return ace
+
+def ECE_KDE(conf, pred, gt, p=1, bandwidth=None):
+    """
+    Expected Calibration Error using Kernel Density Estimation (ECE-KDE)
+    
+    This implements a simplified version of the ECE-KDE metric from the paper:
+    "A Consistent and Differentiable Lp Canonical Calibration Error Estimator" (NeurIPS 2022)
+    
+    The implementation uses a Gaussian kernel for simplicity and computational efficiency,
+    rather than the Dirichlet/Beta kernels in the original paper. This simplification is
+    appropriate for medical imaging datasets with few-shot learning for several reasons:
+    
+    1. Computational Efficiency: The Gaussian kernel is faster to compute and has lower 
+       memory requirements than the Dirichlet kernel, important for iterative training.
+    
+    2. Top-Label Focus: For medical diagnosis tasks, top-label (confidence) calibration 
+       is often the primary concern, making the full canonical calibration unnecessary.
+    
+    3. Few-Shot Robustness: In few-shot learning (e.g., 8-shot), simpler models with fewer
+       parameters tend to be more robust, and the same applies to calibration metrics.
+    
+    4. Adaptive Bandwidth: The implementation uses an adaptive bandwidth based on dataset 
+       size, which is particularly important for few-shot learning where test sets can vary.
+    
+    The key difference from traditional binning-based ECE is that KDE provides a smooth, 
+    continuous estimate of the relationship between confidence and accuracy, avoiding
+    artifacts from arbitrary bin boundaries.
+    
+    Args:
+        conf (numpy.ndarray): list of confidences (max probability values)
+        pred (numpy.ndarray): list of predictions (class indices)
+        gt (numpy.ndarray): list of true labels (class indices)
+        p (int): order of the norm (1 for L1 norm, 2 for L2 norm)
+        bandwidth (float): optional manual bandwidth parameter, auto-selected if None
+        
+    Returns:
+        ece_kde: expected calibration error using KDE
+    """
+    
+    # Convert inputs to torch tensors if needed
+    if not isinstance(conf, torch.Tensor):
+        conf = torch.tensor(conf, dtype=torch.float32)
+    if not isinstance(pred, torch.Tensor):
+        pred = torch.tensor(pred, dtype=torch.long)
+    if not isinstance(gt, torch.Tensor):
+        gt = torch.tensor(gt, dtype=torch.long)
+    
+    # Calculate accuracy (1 if correct, 0 if wrong)
+    acc = (pred == gt).float()
+    
+    # Get number of samples
+    n = len(conf)
+    
+    # Set bandwidth based on dataset size (determined from test set)
+    # For few-shot learning scenarios, larger bandwidths prevent overfitting
+    if bandwidth is None:
+        if n < 100:  # Very small datasets like test sets for few-shot learning
+            bandwidth = 0.3
+        elif n < 500:  # Small test sets
+            bandwidth = 0.2
+        elif n < 2000:  # Medium test sets
+            bandwidth = 0.1
+        else:  # Large test sets
+            bandwidth = 0.05
+    
+    # Calculate kernel matrix using Gaussian kernel
+    # This is simpler than the Beta/Dirichlet kernels in the paper but still effective
+    conf_expanded = conf.unsqueeze(1)
+    diff = conf_expanded - conf_expanded.T
+    kernel = torch.exp(-(diff**2) / (2 * bandwidth**2))
+    kernel.fill_diagonal_(0)  # exclude self-comparisons for leave-one-out estimation
+    
+    # Normalize kernel to ensure proper weighting
+    kernel_sum = kernel.sum(dim=1, keepdim=True)
+    kernel_sum = torch.clamp(kernel_sum, min=1e-10)  # avoid division by zero
+    kernel_norm = kernel / kernel_sum
+    
+    # Estimate accuracy for each confidence value using KDE
+    estimated_acc = torch.matmul(kernel_norm, acc)
+    
+    # Calculate ECE-KDE using Lp norm (default p=1 for L1 norm)
+    ece_kde = torch.mean(torch.abs(conf - estimated_acc)**p)
+    
+    return ece_kde.item()

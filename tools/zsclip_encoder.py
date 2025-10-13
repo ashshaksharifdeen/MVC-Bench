@@ -1,24 +1,14 @@
-from clip import clip
+from models.clip import clip
 import torch
 
 def build_clip_templates(dataset_name):
 
     CUSTOM_TEMPLATES = {
-        "OxfordPets": "a photo of a {}, a type of pet.",
-        "OxfordFlowers": "a photo of a {}, a type of flower.",
-        "FGVCAircraft": "a photo of a {}, a type of aircraft.",
-        "DescribableTextures": "a photo of a {}, a type of texture.",
-        "EuroSAT": "a centered satellite photo of {}.",
-        "StanfordCars": "a photo of a {}.",
-        "Food101": "a photo of {}, a type of food.",
-        "SUN397": "a photo of a {}.",
-        "Caltech101": "a photo of a {}.",
-        "UCF101": "a photo of a person doing {}.",
-        "ImageNet": "a photo of a {}.",
-        "ImageNetSketch": "a photo of a {}.",
-        "ImageNetV2": "a photo of a {}.",
-        "ImageNetA": "a photo of a {}.",
-        "ImageNetR": "a photo of a {}.",
+       "KatherColon": "An H&E image of {}.",  
+       "DigestPath": "An H&E image patch of {} tissue.",
+       "PanNuke": "An H&E image patch of {} skin tissue.",
+        "Covid": "A chest X-ray image of {} patient",
+        "RSNA18": "A chest X-ray image of {} patient",
     }
     return CUSTOM_TEMPLATES[dataset_name]
 

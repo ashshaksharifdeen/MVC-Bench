@@ -1,6 +1,0 @@
-DATASET:
-  NAME: "ImageNet"
-
-CALIBRATION:
-  PROCAL:
-    IMAGE_K: 10

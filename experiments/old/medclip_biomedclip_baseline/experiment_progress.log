@@ -1,0 +1,25 @@
+Starting experiments at Thu Feb 27 12:27:22 AM UTC 2025
+=== STARTING MEDCLIP EXPERIMENTS ===
+----------------------------------------------
+Running experiments for medclip on covid
+Started at: Thu Feb 27 12:27:22 AM UTC 2025
+Finished at: Thu Feb 27 12:33:50 AM UTC 2025
+----------------------------------------------
+----------------------------------------------
+Running experiments for medclip on rsna18
+Started at: Thu Feb 27 12:33:50 AM UTC 2025
+Finished at: Thu Feb 27 12:40:55 AM UTC 2025
+----------------------------------------------
+=== STARTING BIOMEDCLIP EXPERIMENTS ===
+----------------------------------------------
+Running experiments for biomedclip on covid
+Started at: Thu Feb 27 12:40:55 AM UTC 2025
+Finished at: Thu Feb 27 12:47:26 AM UTC 2025
+----------------------------------------------
+----------------------------------------------
+Running experiments for biomedclip on rsna18
+Started at: Thu Feb 27 12:47:26 AM UTC 2025
+Finished at: Thu Feb 27 12:54:23 AM UTC 2025
+----------------------------------------------
+All experiments completed at Thu Feb 27 12:54:23 AM UTC 2025
+Creating combined results summary...
