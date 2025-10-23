@@ -31,6 +31,6 @@ MODEL:
 TRAINER:
   MAPLE:
     N_CTX: 2
-    CTX_INIT: "‘a photo of a"
+    CTX_INIT: "a photo of a"  # a nice image of a #an example of a  # a picture of a #a photo of the cool
     PREC: "fp16"
     PROMPT_DEPTH: 9

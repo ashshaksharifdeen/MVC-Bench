@@ -14,6 +14,7 @@ from clip import clip
 from trainers.regularizers import REGULARIZER_REGISTRY
 from clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
 from clip.model import convert_weights
+from trainers.temp_scaling  import *
 _tokenizer = _Tokenizer()
 
 CUSTOM_TEMPLATES = {
@@ -32,6 +33,10 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
+    "APTOS": "a photo of a {}.",
+    "EYEPACS": "a photo of a {}.",
+    "MESSIDOR": "a photo of a {}.",
+    "MESSIDOR_2": "a photo of a {}.",
 }
 
 def load_clip_to_cpu_zs(cfg):
@@ -447,16 +452,37 @@ class CoOp(TrainerX):
             text_feats      = mp_txt,
             labels     = labels,)
 
+            #ECCV 
+            eccv_penalty = REGULARIZER_REGISTRY.get("eccv_penalty")
+            eccv_penalty_loss = eccv_penalty(zs_pred=zs_log, output=logits)
+            #eccv_zeroshot
+            eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
+            eccv_zs_loss = eccv_zs(zs_pred=zs_log, output=logits,label=label)
 
+            #MDCA
+            mdca = REGULARIZER_REGISTRY.get("MDCA")
+            mdca_loss  = mdca(output=logits,label=label)
+            #MBLS
+            mbls = REGULARIZER_REGISTRY.get("MBLS")
+            mbls_loss  = mbls(logits=logits,targets=label)
+            #DCA
+            dca = REGULARIZER_REGISTRY.get("DCA")
+            dca_loss  = dca(logits=logits,label=label)
+            #label smooth
+            label_smooth = REGULARIZER_REGISTRY.get("label_smooth")
+            label_smooth_loss  = label_smooth(output=logits,label=label)
 
+            #mean var edit
+            margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
+            margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='per_sample')
             #end-----    
 
             loss = F.cross_entropy(output, label)
-            loss+=(margin_reg +(5.0* loss_mm_txt))
-            self.model_backward_and_update(loss)
+            #loss+=label_smooth_loss  #marg  00 in_reg + loss_mm_txt       #eccv_penalty_loss                          #(margin_reg +(5.0* loss_mm_txt))
+            self.model_backward_and_update(loss) #eccv_zs_loss
 
         loss_summary = {
-            "loss": loss.item(),
+            "loss": loss.item(), #eccv_zs_loss
             "acc": compute_accuracy(output, label)[0].item(),
         }
 

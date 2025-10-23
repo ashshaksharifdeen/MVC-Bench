@@ -9,6 +9,7 @@ from dassl.config import get_cfg_default
 from dassl.engine import build_trainer
 from train import extend_cfg
 import trainers.maple
+import trainers.coop
 
 def ECE_Loss(num_bins, predictions, confidences, correct):
     bin_boundaries = torch.linspace(0, 1, num_bins + 1)
@@ -70,7 +71,7 @@ def plot_incorrect_fraction_histogram(incorrect_confidences, save_path,
     plt.close(fig)
 
 def main(args):
-    seed = 2
+    seed = 3
     prompt = "a photo of a"
 
     # Build & load model

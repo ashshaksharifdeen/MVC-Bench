@@ -547,3 +547,130 @@ def progradloss(stu_logits: torch.Tensor,
 
 
     return kl_loss
+
+@REGULARIZER_REGISTRY.register()
+def MBLS(logits: torch.Tensor,
+              targets: torch.Tensor,
+              margin: float = 10.0,
+              alpha: float = 0.1) -> torch.Tensor:
+    """Wrapper so you can do
+           reg_fn = REGULARIZER_REGISTRY.get('margin_l1')
+           loss   = reg_fn(logits, label, margin=10, alpha=0.1)
+    """
+    # Get logit distances (difference between max logit and all logits)
+    max_values = logits.max(dim=1, keepdim=True)[0]
+    max_values = max_values.expand_as(logits)  # Expand to same shape as logits
+    diff = max_values - logits
+    
+    # Apply linear penalty where logit distances exceed the margin
+    margin_loss = F.relu(diff - margin).mean()
+    
+    # Combine losses
+    total_loss =  alpha * margin_loss
+    
+    return total_loss
+
+@REGULARIZER_REGISTRY.register()
+def label_smooth(output: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
+
+            alpha=0.1
+            margin = 10.0
+            pred = output.log_softmax(dim=-1)
+            num_classes = pred.shape[-1]
+            with torch.no_grad():
+                    true_dist = torch.zeros_like(pred)
+                    true_dist.fill_(alpha / (num_classes - 1))
+                    true_dist.scatter_(1, label.data.unsqueeze(1), 1.0 - alpha)
+            return torch.mean(torch.sum(-true_dist * pred, dim=-1))
+
+@REGULARIZER_REGISTRY.register()
+def DCA(logits:torch.Tensor, label:torch.Tensor):
+    """Distance-Confidence Adjustment Loss"""
+    softmaxes = F.softmax(logits, dim=1)
+    confidences, predictions = torch.max(softmaxes, 1)
+    accuracies = predictions.eq(label)
+    mean_conf = confidences.float().mean()
+    acc = accuracies.float().mean()
+    return torch.abs(mean_conf - acc) 
+
+@REGULARIZER_REGISTRY.register()
+def MDCA(output: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
+
+            #output = model.output_ 
+            output = torch.softmax(output, dim=1)
+            batch, classes = output.shape
+            mdca_loss_ = torch.tensor(0.0).cuda()
+            for c in range(classes):
+                avg_count = (label == c).float().mean()
+                avg_conf = torch.mean(output[:,c])
+                mdca_loss_ += torch.abs(avg_conf - avg_count)
+            denom = classes
+            mdca_loss_ /= denom
+
+            return mdca_loss_  
+
+@REGULARIZER_REGISTRY.register()
+def margin_mean_var_all(logits, label, **kwargs):
+    """
+    Margin Mean-Variance Loss (true-vs-ALL-other classes)
+
+    R_margin = -alpha * mu + beta * var
+      where:
+        For sample i with label y_i:
+          m_{i,k} = z[i, y_i] - z[i, k]    for all k != y_i
+          mbar_i  = (1/(C-1)) * sum_{k != y_i} m_{i,k}
+        mu   = mean_i(mbar_i)
+
+      Variance options (choose via variance_mode in kwargs):
+        - 'per_sample' (default): var = Var({mbar_i}_i) across the batch
+        - 'all_pairs' : var over every m_{i,k} (computed efficiently, no big tensor)
+
+    kwargs:
+      alpha (float): weight for mean term (default 0.1)
+      beta  (float): weight for variance term (default 0.01)
+      variance_mode (str): 'per_sample' or 'all_pairs' (default 'per_sample')
+    """
+    alpha = float(kwargs.get("alpha", 0.1))
+    beta  = float(kwargs.get("beta", 0.01))
+    variance_mode = kwargs.get("variance_mode", "per_sample")
+
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes for pairwise margins.")
+
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # True-class scores: z_true[i] = logits[i, y_i]
+    z_true = logits[idx, label]  # (B,)
+
+    # Sums over all classes
+    sum_all     = logits.sum(dim=1)              # (B,)
+    sum_sq_all  = (logits**2).sum(dim=1)         # (B,)
+
+    # Exclude the true class to get "other classes"
+    others_sum    = sum_all - z_true             # (B,)
+    others_sum_sq = sum_sq_all - z_true**2       # (B,)
+
+    # Per-sample average of other-class scores and margins:
+    denom = (C - 1)
+    mean_others = others_sum / denom             # (B,)
+    mbar = z_true - mean_others                  # (B,)  == average_{k!=y}(z_true - z_k)
+
+    # Mean across batch
+    mu = mbar.mean()
+
+    # Variance term
+    if variance_mode == "per_sample":
+        # Var across the B per-sample averages
+        var_term = mbar.var(unbiased=False)
+    elif variance_mode == "all_pairs":
+        # E[m^2] over all (i,k!=y): average squared pairwise margin
+        # For each i: avg_k (z_true - z_k)^2 = [ (C-1)*z_true^2 - 2*z_true*sum_others + sum_others_sq ] / (C-1)
+        Em2_per_sample = ((denom * z_true**2) - 2 * z_true * others_sum + others_sum_sq) / denom  # (B,)
+        Em2 = Em2_per_sample.mean()   # average across batch -> E[m^2] over all pairs
+        var_term = Em2 - mu**2
+    else:
+        raise ValueError("variance_mode must be 'per_sample' or 'all_pairs'.")
+
+    return -alpha * mu + beta * var_term  

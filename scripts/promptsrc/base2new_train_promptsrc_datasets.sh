@@ -2,7 +2,7 @@
 GPU_ID="${1:-2}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base data path and trainer
-DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
+DATA="/storagepool/Ashshak/DR"   #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
 TRAINER=PromptSRC
 CFG=vit_b16_c2_ep20_batch4_4+4ctx
 SHOTS=16
@@ -10,7 +10,7 @@ SHOTS=16
 # List of datasets to loop over
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(aptos eyepacs messidor messidor_2) #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 
 # List of seeds to loop over
 SEEDS=(1 2 3)

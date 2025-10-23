@@ -26,6 +26,10 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
+    "APTOS": "a photo of a {}.",
+    "EYEPACS": "a photo of a {}.",
+    "MESSIDOR": "a photo of a {}.",
+    "MESSIDOR_2": "a photo of a {}.",
 }
 
 

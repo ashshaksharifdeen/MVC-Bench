@@ -1,5 +1,5 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base config
 DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
@@ -21,8 +21,8 @@ SEEDS=(1 2 3)
 for DATASET in "${DATASETS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
         COMMON_DIR=${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
-        MODEL_DIR=/storagepool/Ashshak/output/base2new/train_base/${COMMON_DIR}
-        DIR=/storagepool/Ashshak/output/base2new/test_${SUB}/${COMMON_DIR}
+        MODEL_DIR=/storagepool/Ashshak/output2/base2new/train_base/${COMMON_DIR}
+        DIR=/storagepool/Ashshak/output2/base2new/test_${SUB}/${COMMON_DIR}
 
         echo "---------------------------------------------"
         echo "Evaluating ${DATASET} | Seed ${SEED}"

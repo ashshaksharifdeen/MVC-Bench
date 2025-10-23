@@ -8,11 +8,11 @@ TRAINER=MaPLe
 CFG=vit_b16_c2_ep5_batch4_2ctx
 SHOTS=16
 
-DATASET=eurosat
+DATASET=oxford_flowers
 SEED=1
 
 # Define the output directory following your naming convention.
-OUTPUT_DIR="output/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}"
+OUTPUT_DIR="/storagepool/Ashshak/output/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}"
 
 echo "Starting prompt calibration experiment for dataset: ${DATASET}, seed: ${SEED}"
 echo "Training output directory: ${OUTPUT_DIR}"

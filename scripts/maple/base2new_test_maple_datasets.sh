@@ -1,8 +1,8 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base config
-DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
+DATA="/storagepool/Ashshak/DR" #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
 TRAINER=MaPLe
 CFG=vit_b16_c2_ep5_batch4_2ctx
 SHOTS=16
@@ -10,8 +10,9 @@ LOADEP=5
 SUB=new
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets and seeds
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
-SEEDS=(1)
+#aptos eyepacs messidor messidor_2
+DATASETS=(aptos messidor messidor_2 eyepacs)
+SEEDS=(1 2 3)
 
 # Loop through datasets and seeds
 for DATASET in "${DATASETS[@]}"; do

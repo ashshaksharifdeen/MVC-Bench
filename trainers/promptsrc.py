@@ -34,6 +34,10 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
+    "APTOS": "a photo of a {}.",
+    "EYEPACS": "a photo of a {}.",
+    "MESSIDOR": "a photo of a {}.",
+    "MESSIDOR_2": "a photo of a {}.",
 }
 
 def load_clip_to_cpu_zs(cfg):
@@ -411,9 +415,25 @@ class PromptSRC(TrainerX):
             #eccv_zeroshot
             eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
             eccv_zs_loss = eccv_zs(zs_pred=zs_log, output=logits,label=label)
+            #MDCA
+            mdca = REGULARIZER_REGISTRY.get("MDCA")
+            mdca_loss  = mdca(output=logits,label=label)
+            #MBLS
+            mbls = REGULARIZER_REGISTRY.get("MBLS")
+            mbls_loss  = mbls(logits=logits,targets=label)
+            #DCA
+            dca = REGULARIZER_REGISTRY.get("DCA")
+            dca_loss  = dca(logits=logits,label=label)
+            #label smooth
+            label_smooth = REGULARIZER_REGISTRY.get("label_smooth")
+            label_smooth_loss  = label_smooth(output=logits,label=label)
 
+            #mean var edit
+            margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
+            margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='per_sample')
+            #end-----    
             L_SCL = (L_SCL_logits + loss_scl_text + loss_scl_image )
-            loss = (loss_ce + L_SCL + eccv_penalty_loss) #oxford_flowers
+            loss = (loss_ce + L_SCL ) #oxford_flowers
             optim.zero_grad()
             loss.backward()
             optim.step()

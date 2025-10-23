@@ -180,7 +180,7 @@ def load_trainer(model_dir, prompt_value):
     cfg.OUTPUT_DIR = model_dir
     cfg.TRAINER.NAME = "MaPLe"        # Your trainer name.
     cfg.TRAINER.MAPLE.CTX_INIT = prompt_value  # Set to the extracted prompt.
-    cfg.DATASET.SUBSAMPLE_CLASSES = "base"
+    cfg.DATASET.SUBSAMPLE_CLASSES = "new"
     # Note: Use the correct dataset name (case-sensitive) if needed.
     cfg.DATASET.NAME = "OxfordFlowers"
     cfg.DATASET.ROOT = "/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
@@ -198,7 +198,7 @@ def load_trainer(model_dir, prompt_value):
 # ----------------------------------------------------------------------------
 def main():
     # Base directory for experiments.
-    base_dir = "output/base2new/train_base/oxford_flowers/shots_16/MaPLe"
+    base_dir = "/storagepool/Ashshak/output/base2new/train_base/oxford_flowers/shots_16/MaPLe"
     experiment_dirs = find_experiment_dirs(base_dir)
     if not experiment_dirs:
         print("No experiment directories found in", base_dir)
@@ -232,7 +232,7 @@ def main():
         return
 
     # Create directory for plots.
-    plots_dir = os.path.join("output", "plots_base")
+    plots_dir = os.path.join("output", "plots_new")
     os.makedirs(plots_dir, exist_ok=True)
 
     # Prepare data arrays.

@@ -22,6 +22,11 @@ import datasets.imagenet_sketch
 import datasets.imagenetv2
 import datasets.imagenet_a
 import datasets.imagenet_r
+import datasets.aptos
+import datasets.eyepacs
+import datasets.messidor
+import datasets.messidor_2
+
 
 import trainers.coop
 import trainers.cocoop
@@ -32,6 +37,7 @@ import trainers.vpt
 import trainers.promptsrc
 import trainers.kgcoop
 import trainers.prograd
+import trainers.dapt
 
 def print_args(args, cfg):
     print("***************")
@@ -148,6 +154,19 @@ def extend_cfg(cfg):
     cfg.TRAINER.PROMPTSRC.GPA_STD = 1
     cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
 
+    cfg.TRAINER.DAPT = CN()
+    cfg.TRAINER.DAPT.VIS_NUM_TOKENS = 16
+    cfg.TRAINER.DAPT.VIS_DROPOUT = 0.0
+    cfg.TRAINER.DAPT.VIS_BETA = 0.1
+    cfg.TRAINER.DAPT.TXT_NUM_TOKENS = 16 
+    cfg.TRAINER.DAPT.TXT_RBF_T = 2.0
+    cfg.TRAINER.DAPT.TXT_BETA = 0.1
+
+    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+
+    cfg.TRAINER.DAPT.PROTOTYPE_GEN = False
+
+
 
     cfg.LOSS = CN()
     cfg.LOSS.GM = False
@@ -194,7 +213,7 @@ def main(args):
     print("** System info **\n{}\n".format(collect_env_info()))
 
     trainer = build_trainer(cfg)
-
+    # if cfg.TRAINER.DAPT.PROTOTYPE_GEN == False:
     if args.eval_only:
         trainer.load_model(args.model_dir, epoch=args.load_epoch)
         trainer.test()

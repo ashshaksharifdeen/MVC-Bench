@@ -19,6 +19,7 @@ from clip import clip
 from clip.model import convert_weights
 from clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
 from trainers.regularizers import REGULARIZER_REGISTRY
+from trainers.temp_scaling  import *
 _tokenizer = _Tokenizer()
 
 
@@ -38,6 +39,10 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
+    "APTOS": "a photo of a {}.",
+    "EYEPACS": "a photo of a {}.",
+    "MESSIDOR": "a photo of a {}.",
+    "MESSIDOR_2": "a photo of a {}.",
 }
 
 def load_clip_to_cpu_zs(cfg):
@@ -322,6 +327,9 @@ class CustomCLIP(nn.Module):
             
                 return F.cross_entropy(logits, label)
 
+        #temp_calibrator =TempScaling(bias=False)
+        #temp_calibrator.fit(logits, label)
+        #logits = temp_calibrator.calibrate(logits)
         return logits
     
     def forward_features(self, image):
@@ -656,6 +664,7 @@ class MaPLe(TrainerX):
             inputs= model.logits_val
             diff = self.get_diff(inputs)
             # add linear penalty where logit distances are larger than the margin
+            #MBLS
             loss_margin = F.relu(diff-margin).mean()
             #loss += (+ (softmax_contrastive_loss))
             #finish label smoothing loss -----------------------------"""
@@ -747,6 +756,18 @@ class MaPLe(TrainerX):
             eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
             eccv_zs_loss = eccv_zs(zs_pred=zs_log, output=logits,label=label)
 
+            #MDCA
+            mdca = REGULARIZER_REGISTRY.get("MDCA")
+            mdca_loss  = mdca(output=logits,label=label)
+            #MBLS
+            mbls = REGULARIZER_REGISTRY.get("MBLS")
+            mbls_loss  = mbls(logits=logits,targets=label)
+            #DCA
+            dca = REGULARIZER_REGISTRY.get("DCA")
+            dca_loss  = dca(logits=logits,label=label)
+            #label smooth
+            label_smooth = REGULARIZER_REGISTRY.get("label_smooth")
+            label_smooth_loss  = label_smooth(output=logits,label=label)
             #orthogonal--------------------
             features   = model.textfeatures 
             N = features.shape[0]
@@ -763,18 +784,21 @@ class MaPLe(TrainerX):
             # Average across all features to get final loss
             cosine_loss = neighbor_sims_mean.mean() 
             orth_align = F.l1_loss(zs_cosine_loss,cosine_loss)
-            loss+= eccv_penalty_loss #(margin_reg+ 5.0*loss_mm_txt)      #(margin_reg +(5.0*l1_text)) #+ (5.0*rafa) /#(5.0*loss_mm_txt)+(loss_nce_txt)<<tune and play around with thease
-
+            #mean var edit
+            margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
+            margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='all_pairs')
+            loss+=margin_var_all_loss  #+ 5.0*loss_mm_txt     #eccv_penalty_loss  #eccv_penalty_loss #eccv_penalty_loss                                 #eccv_penalty_loss #(margin_reg+ 5.0*loss_mm_txt)      #(margin_reg +(5.0*l1_text)) #+ (5.0*rafa) /#(5.0*loss_mm_txt)+(loss_nce_txt)<<tune and play around with thease
+            #loss+=mbls_loss
             #loss+=(+(margin_reg)+(2.0 * negative_sim.mean())-(5.0* positive_sim.mean())) #+(negative_sim.mean())
             #loss+=(-(mean_dist)-(penalty_value))
          
             optim.zero_grad()
-            loss.backward()
             #loss.backward()
+            loss.backward()
             optim.step()
             
-        loss_summary = {"loss": loss.item()}
         #loss_summary = {"loss": loss.item()}
+        loss_summary = {"loss": loss.item()}
 
         if (self.batch_idx + 1) == self.num_batches:
             self.update_lr()

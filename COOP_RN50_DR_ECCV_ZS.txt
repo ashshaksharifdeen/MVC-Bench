@@ -1,0 +1,118 @@
+========== ALL RESULTS (2025-10-08_04-47-09) ==========
+
+Parsing results for dataset: aptos
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/aptos/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/train_base/aptos/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 76.00%. macro_f1: 42.33%. ece: 43.62%. mce: 20.11%. adaptive_ece: 43.62%. 
+/storagepool/Ashshak/output2/base2new/train_base/aptos/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 75.86%. macro_f1: 40.44%. ece: 45.90%. mce: 22.16%. adaptive_ece: 45.90%. 
+/storagepool/Ashshak/output2/base2new/train_base/aptos/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 75.45%. macro_f1: 39.25%. ece: 50.42%. mce: 48.33%. adaptive_ece: 50.42%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/aptos/shots_16/CoOp/rn50_ep50
+* accuracy: 75.77% ± 0.23%
+* macro_f1: 40.67% ± 1.27%
+* ece: 46.65% ± 2.83%
+* mce: 30.20% ± 12.85%
+* adaptive_ece: 46.65% ± 2.83%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/aptos/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/test_new/aptos/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 76.00%. macro_f1: 42.33%. ece: 43.62%. mce: 20.11%. adaptive_ece: 43.62%. 
+/storagepool/Ashshak/output2/base2new/test_new/aptos/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 75.89%. macro_f1: 40.51%. ece: 45.93%. mce: 22.13%. adaptive_ece: 45.93%. 
+/storagepool/Ashshak/output2/base2new/test_new/aptos/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 75.42%. macro_f1: 39.26%. ece: 50.39%. mce: 48.28%. adaptive_ece: 50.39%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/aptos/shots_16/CoOp/rn50_ep50
+* accuracy: 75.77% ± 0.25%
+* macro_f1: 40.70% ± 1.26%
+* ece: 46.65% ± 2.81%
+* mce: 30.17% ± 12.83%
+* adaptive_ece: 46.65% ± 2.81%
+===
+-----------------------------
+
+Parsing results for dataset: eyepacs
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/eyepacs/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/train_base/eyepacs/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 74.14%. macro_f1: 20.08%. ece: 13.53%. mce: 3.55%. adaptive_ece: 13.54%. 
+/storagepool/Ashshak/output2/base2new/train_base/eyepacs/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 74.21%. macro_f1: 20.09%. ece: 10.10%. mce: 2.27%. adaptive_ece: 10.18%. 
+/storagepool/Ashshak/output2/base2new/train_base/eyepacs/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 74.07%. macro_f1: 19.65%. ece: 11.39%. mce: 3.10%. adaptive_ece: 11.41%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/eyepacs/shots_16/CoOp/rn50_ep50
+* accuracy: 74.14% ± 0.06%
+* macro_f1: 19.94% ± 0.21%
+* ece: 11.67% ± 1.41%
+* mce: 2.97% ± 0.53%
+* adaptive_ece: 11.71% ± 1.39%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/eyepacs/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/test_new/eyepacs/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 74.14%. macro_f1: 20.08%. ece: 13.53%. mce: 3.55%. adaptive_ece: 13.54%. 
+/storagepool/Ashshak/output2/base2new/test_new/eyepacs/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 74.21%. macro_f1: 20.09%. ece: 10.10%. mce: 2.27%. adaptive_ece: 10.18%. 
+/storagepool/Ashshak/output2/base2new/test_new/eyepacs/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 74.07%. macro_f1: 19.65%. ece: 11.39%. mce: 3.10%. adaptive_ece: 11.41%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/eyepacs/shots_16/CoOp/rn50_ep50
+* accuracy: 74.14% ± 0.06%
+* macro_f1: 19.94% ± 0.21%
+* ece: 11.67% ± 1.41%
+* mce: 2.97% ± 0.53%
+* adaptive_ece: 11.71% ± 1.39%
+===
+-----------------------------
+
+Parsing results for dataset: messidor
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/messidor/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/train_base/messidor/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 56.08%. macro_f1: 35.03%. ece: 24.93%. mce: 15.70%. adaptive_ece: 24.93%. 
+/storagepool/Ashshak/output2/base2new/train_base/messidor/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 57.92%. macro_f1: 38.52%. ece: 24.59%. mce: 18.06%. adaptive_ece: 24.59%. 
+/storagepool/Ashshak/output2/base2new/train_base/messidor/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 58.92%. macro_f1: 40.01%. ece: 30.12%. mce: 18.76%. adaptive_ece: 30.12%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/messidor/shots_16/CoOp/rn50_ep50
+* accuracy: 57.64% ± 1.18%
+* macro_f1: 37.85% ± 2.09%
+* ece: 26.55% ± 2.53%
+* mce: 17.51% ± 1.31%
+* adaptive_ece: 26.55% ± 2.53%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/messidor/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/test_new/messidor/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 56.08%. macro_f1: 35.03%. ece: 24.93%. mce: 15.70%. adaptive_ece: 24.93%. 
+/storagepool/Ashshak/output2/base2new/test_new/messidor/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 57.92%. macro_f1: 38.52%. ece: 24.59%. mce: 18.06%. adaptive_ece: 24.59%. 
+/storagepool/Ashshak/output2/base2new/test_new/messidor/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 58.92%. macro_f1: 40.01%. ece: 30.12%. mce: 18.76%. adaptive_ece: 30.12%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/messidor/shots_16/CoOp/rn50_ep50
+* accuracy: 57.64% ± 1.18%
+* macro_f1: 37.85% ± 2.09%
+* ece: 26.55% ± 2.53%
+* mce: 17.51% ± 1.31%
+* adaptive_ece: 26.55% ± 2.53%
+===
+-----------------------------
+
+Parsing results for dataset: messidor_2
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/messidor_2/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/train_base/messidor_2/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 63.36%. macro_f1: 24.86%. ece: 14.47%. mce: 5.23%. adaptive_ece: 14.38%. 
+/storagepool/Ashshak/output2/base2new/train_base/messidor_2/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 63.53%. macro_f1: 30.59%. ece: 17.51%. mce: 7.11%. adaptive_ece: 17.51%. 
+/storagepool/Ashshak/output2/base2new/train_base/messidor_2/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 63.07%. macro_f1: 30.57%. ece: 14.68%. mce: 5.12%. adaptive_ece: 14.68%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/messidor_2/shots_16/CoOp/rn50_ep50
+* accuracy: 63.32% ± 0.19%
+* macro_f1: 28.67% ± 2.70%
+* ece: 15.55% ± 1.39%
+* mce: 5.82% ± 0.91%
+* adaptive_ece: 15.52% ± 1.41%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/messidor_2/shots_16/CoOp/rn50_ep50
+/storagepool/Ashshak/output2/base2new/test_new/messidor_2/shots_16/CoOp/rn50_ep50/seed1/log.txt  accuracy: 63.65%. macro_f1: 25.20%. ece: 14.75%. mce: 5.55%. adaptive_ece: 14.67%. 
+/storagepool/Ashshak/output2/base2new/test_new/messidor_2/shots_16/CoOp/rn50_ep50/seed2/log.txt  accuracy: 63.53%. macro_f1: 30.59%. ece: 17.51%. mce: 7.11%. adaptive_ece: 17.51%. 
+/storagepool/Ashshak/output2/base2new/test_new/messidor_2/shots_16/CoOp/rn50_ep50/seed3/log.txt  accuracy: 63.07%. macro_f1: 30.57%. ece: 14.68%. mce: 5.12%. adaptive_ece: 14.68%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/messidor_2/shots_16/CoOp/rn50_ep50
+* accuracy: 63.42% ± 0.25%
+* macro_f1: 28.79% ± 2.54%
+* ece: 15.65% ± 1.32%
+* mce: 5.93% ± 0.85%
+* adaptive_ece: 15.62% ± 1.34%
+===
+-----------------------------
+

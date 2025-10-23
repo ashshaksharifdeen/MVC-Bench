@@ -1,14 +1,14 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets to process
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(aptos eyepacs messidor messidor_2)
 
 # Common settings
 SHOTS=16
 TRAINER=MaPLe
-CFG=vit_b16_c2_ep5_batch4_2ctx
+CFG=vit_b16_c2_ep5_batch4_2ctx #vit_b16_c2_ep5_batch4_2ctx_cross_datasets #vit_b16_c2_ep5_batch4_2ctx
 
 # Timestamped logfile name
 TIMESTAMP=$(date +%F_%H-%M-%S)

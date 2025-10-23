@@ -1,5 +1,5 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base data path and trainer
 DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
@@ -22,7 +22,7 @@ SEEDS=(1 2 3)
 for DATASET in "${DATASETS[@]}"; do
     # Loop through each seed
     for SEED in "${SEEDS[@]}"; do
-        DIR=/storagepool/Ashshak/output/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
+        DIR=/storagepool/Ashshak/output2/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
         
         if [ -d "$DIR" ]; then
             echo "Results are available in ${DIR}. Resuming..."
