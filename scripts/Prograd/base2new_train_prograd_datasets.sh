@@ -1,19 +1,19 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base data path and trainer
-DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
+DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"  #"/storagepool/Ashshak/DR"   #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
 TRAINER=ProGrad
 CFG=rn50_ep100
 CTP=end 
 NCTX=16
-SHOTS=4
+SHOTS=16
 CSC=False
 LAMBDA=1.0
 # List of datasets to loop over
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat) #("pannuke" "kather" "digestpath")  #(aptos messidor messidor_2 eyepacs)   #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 
 # List of seeds to loop over
 SEEDS=(1 2 3)
@@ -22,7 +22,7 @@ SEEDS=(1 2 3)
 for DATASET in "${DATASETS[@]}"; do
     # Loop through each seed
     for SEED in "${SEEDS[@]}"; do
-        DIR=/storagepool/Ashshak/output/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
+        DIR=/storagepool/Ashshak/output3/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
         
         if [ -d "$DIR" ]; then
             echo "Results are available in ${DIR}. Resuming..."

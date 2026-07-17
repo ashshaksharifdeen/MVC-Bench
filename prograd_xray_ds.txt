@@ -1,0 +1,38 @@
+========== ALL RESULTS (2026-03-11_21-35-16) ==========
+
+Parsing results for dataset: rsna18
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/ProGrad/rn50_ep100
+/storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/ProGrad/rn50_ep100/seed1/log.txt  accuracy: 40.37%. macro_f1: 19.34%. ece: 7.08%. mce: 4.26%. adaptive_ece: 7.08%. 
+/storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/ProGrad/rn50_ep100/seed2/log.txt  accuracy: 41.64%. macro_f1: 25.48%. ece: 10.37%. mce: 7.26%. adaptive_ece: 10.36%. 
+/storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/ProGrad/rn50_ep100/seed3/log.txt  accuracy: 40.76%. macro_f1: 22.26%. ece: 7.73%. mce: 3.99%. adaptive_ece: 7.73%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/ProGrad/rn50_ep100
+* accuracy: 40.92% ± 0.53%
+* macro_f1: 22.36% ± 2.51%
+* ece: 8.39% ± 1.42%
+* mce: 5.17% ± 1.48%
+* adaptive_ece: 8.39% ± 1.42%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_all/rsna18/shots_16/ProGrad/rn50_ep100
+-----------------------------
+
+Parsing results for dataset: covid
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_all/covid/shots_16/ProGrad/rn50_ep100
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_all/covid/shots_16/ProGrad/rn50_ep100
+/storagepool/Ashshak/output/base2new/test_all/covid/shots_16/ProGrad/rn50_ep100/seed1/log.txt  accuracy: 74.07%. macro_f1: 43.57%. ece: 13.67%. mce: 11.17%. adaptive_ece: 16.03%. 
+/storagepool/Ashshak/output/base2new/test_all/covid/shots_16/ProGrad/rn50_ep100/seed2/log.txt  accuracy: 46.22%. macro_f1: 46.08%. ece: 6.02%. mce: 5.99%. adaptive_ece: 5.96%. 
+/storagepool/Ashshak/output/base2new/test_all/covid/shots_16/ProGrad/rn50_ep100/seed3/log.txt  accuracy: 73.81%. macro_f1: 42.47%. ece: 1.93%. mce: 0.90%. adaptive_ece: 5.76%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/test_all/covid/shots_16/ProGrad/rn50_ep100
+* accuracy: 64.70% ± 13.07%
+* macro_f1: 44.04% ± 1.51%
+* ece: 7.21% ± 4.87%
+* mce: 6.02% ± 4.19%
+* adaptive_ece: 9.25% ± 4.79%
+===
+-----------------------------
+

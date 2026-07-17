@@ -3,6 +3,7 @@ from dassl.utils import Registry
 from torch.nn import functional as F
 import torch.nn as nn
 # a mini‐registry just for regularizers
+import math
 REGULARIZER_REGISTRY = Registry('regularizers')
 
 @REGULARIZER_REGISTRY.register()
@@ -58,7 +59,7 @@ def margin_mean_var(
 
     mean_margin = margins.mean()
     var_margin  = margins.var(unbiased=False)
-    return -alpha * mean_margin + beta * var_margin #-alpha * mean_margin 
+    return  -alpha * mean_margin + beta * var_margin
 
 @REGULARIZER_REGISTRY.register()
 def gaussian_w2(
@@ -467,6 +468,23 @@ def eccv_zs(
 
     return loss
 
+@REGULARIZER_REGISTRY.register()
+def eccv_sals(
+    zs_pred: torch.Tensor,   # [B, C] zero-shot logits
+    output:  torch.Tensor,   # [B, C] adapted logits
+    eps: float = 1e-6
+) -> torch.Tensor:
+    # per-sample min/max
+    min_op = output.min(dim=1, keepdim=True).values
+    max_op = output.max(dim=1, keepdim=True).values
+    min_zs = zs_pred.min(dim=1, keepdim=True).values
+    max_zs = zs_pred.max(dim=1, keepdim=True).values
+
+    denom = (max_op - min_op).clamp_min(eps)
+    out = (output - min_op) / denom
+    out = out * (max_zs - min_zs) + min_zs
+    return out
+
 class LogitMarginL1(nn.Module):
     """Add marginal penalty to logits:
         CE + alpha * mean( max(0, max_j l_j - l_i - margin) )
@@ -674,3 +692,130 @@ def margin_mean_var_all(logits, label, **kwargs):
         raise ValueError("variance_mode must be 'per_sample' or 'all_pairs'.")
 
     return -alpha * mu + beta * var_term  
+@REGULARIZER_REGISTRY.register()
+def margin_mean_var_allclass_loss_explicit(logits, label, **kwargs):
+    """
+    Explicit pairwise implementation:
+      m_{i,k} = z[i,y_i] - z[i,k] for k != y_i
+      mbar_i  = mean_k m_{i,k}
+      mu      = mean_i mbar_i
+      var: 'per_sample' or 'all_pairs'
+    """
+    alpha = float(kwargs.get("alpha", 0.1))
+    beta  = float(kwargs.get("beta", 0.01))
+    variance_mode = kwargs.get("variance_mode", "per_sample")
+
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes.")
+
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # (B,1)
+    z_true = logits[idx, label].unsqueeze(1)
+
+    # Collect other-class logits into (B, C-1)
+    mask = torch.ones_like(logits, dtype=torch.bool)
+    mask[idx, label] = False
+    others = logits[mask].view(B, C - 1)  # (B, C-1)
+
+    # Pairwise margins and per-sample average
+    margins = z_true - others             # (B, C-1)
+    mbar = margins.mean(dim=1)            # (B,)
+    mu = mbar.mean()
+
+    # Variance term
+    if variance_mode == "per_sample":
+        var_term = mbar.var(unbiased=False)
+    elif variance_mode == "all_pairs":
+        Em2 = margins.pow(2).mean()  # average over all (i,k!=y)
+        var_term = Em2 - mu**2
+    else:
+        raise ValueError("variance_mode must be 'per_sample' or 'all_pairs'.")
+
+    return -alpha * mu + beta * var_term
+
+@REGULARIZER_REGISTRY.register()
+def margin_hard_maxmin(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Hard max–min margin regularizer (non-smooth):
+        L_min = - min_i m_i
+    where m_i = z[i, y_i] - max_{j != y_i} z[i, j]  (top-1 vs runner-up margin)
+
+    Minimizing L_min maximizes the worst-case (minimum) margin in the batch.
+    """
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes for margins.")
+
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # True-class scores: z_y
+    true_scores = logits[idx, labels]  # (B,)
+
+    # Runner-up scores: max over j != y
+    tmp = logits.clone()
+    tmp[idx, labels] = -float("inf")
+    runner_up = tmp.max(dim=1).values  # (B,)
+
+    # Margins
+    margins = true_scores - runner_up  # (B,)
+
+    # L_min = - min_i m_i
+    return -margins.min()
+
+
+@REGULARIZER_REGISTRY.register()
+def margin_cvar(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    alpha: float = 0.2,
+) -> torch.Tensor:
+    """
+    CVaR / Expected Shortfall margin regularizer (lower-tail):
+        L_CVaR(alpha) = - CVaR_alpha(m)
+    Approximation:
+        CVaR_alpha(m) ≈ mean of the smallest k margins,
+        k = ceil(alpha * B)
+
+    alpha in (0, 1]: fraction of the worst (smallest) margins to average.
+      - alpha=0.2 => average of worst 20% margins
+      - alpha=1.0 => average of all margins (reduces to -mean margin)
+
+    Minimizing L_CVaR increases the lower-tail margins in a robust way.
+    """
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes for margins.")
+    if not (0.0 < alpha <= 1.0):
+        raise ValueError(f"alpha must be in (0, 1], got {alpha}.")
+
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # True-class scores: z_y
+    true_scores = logits[idx, labels]  # (B,)
+
+    # Runner-up scores: max over j != y
+    tmp = logits.clone()
+    tmp[idx, labels] = -float("inf")
+    runner_up = tmp.max(dim=1).values  # (B,)
+
+    # Margins
+    margins = true_scores - runner_up  # (B,)
+
+    # k = ceil(alpha * B)
+    k = int(math.ceil(alpha * B))
+    k = max(1, min(B, k))
+
+    # smallest k margins (worst-tail)
+    worst_margins = torch.topk(margins, k=k, largest=False).values  # (k,)
+
+    cvar = worst_margins.mean()
+    return -cvar
+

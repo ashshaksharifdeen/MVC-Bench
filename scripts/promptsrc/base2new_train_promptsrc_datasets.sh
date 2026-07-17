@@ -1,8 +1,8 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base data path and trainer
-DATA="/storagepool/Ashshak/DR"   #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
+DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset" #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA" #"/storagepool/Ashshak/DR"   #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
 TRAINER=PromptSRC
 CFG=vit_b16_c2_ep20_batch4_4+4ctx
 SHOTS=16
@@ -10,7 +10,7 @@ SHOTS=16
 # List of datasets to loop over
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
-DATASETS=(aptos eyepacs messidor messidor_2) #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat) #(rsna18 covid) #("pannuke" "kather" "digestpath") #(aptos eyepacs messidor messidor_2) #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 
 # List of seeds to loop over
 SEEDS=(1 2 3)
@@ -19,7 +19,7 @@ SEEDS=(1 2 3)
 for DATASET in "${DATASETS[@]}"; do
     # Loop through each seed
     for SEED in "${SEEDS[@]}"; do
-        DIR=/storagepool/Ashshak/output/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
+        DIR=/storagepool/Ashshak/output4/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
         
         if [ -d "$DIR" ]; then
             echo "Results are available in ${DIR}. Resuming..."
@@ -35,6 +35,7 @@ for DATASET in "${DATASETS[@]}"; do
             --config-file configs/trainers/${TRAINER}/${CFG}.yaml \
             --output-dir ${DIR} \
             DATASET.NUM_SHOTS ${SHOTS} \
-            DATASET.SUBSAMPLE_CLASSES base
+            DATASET.SUBSAMPLE_CLASSES base \
+            TRAINER.PROMPTSRC.PLOT_ANGDIST True
     done
 done

@@ -35,7 +35,17 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
+    "APTOS": "a photo of a {}.",
+    "EYEPACS": "a photo of a {}.",
+    "MESSIDOR": "a photo of a {}.",
+    "MESSIDOR_2": "a photo of a {}.",
+    "PanNuke": "a photo of a {}.",
+    "KatherColon": "a photo of a {}.",
+    "DigestPath": "a photo of a {}.",
+    "RSNA18": "a photo of a {}.",
+    "Covid": "a photo of a {}.",
 }
+
 
 def load_clip_to_cpu_zs(cfg):
     backbone_name = cfg.MODEL.BACKBONE.NAME
@@ -333,6 +343,7 @@ class CustomCLIP(nn.Module):
 
         #print("refined_logits shape:", refined_logits.shape)  # Should be [B, C]
         #print("labels shape:", labels.shape)                  # Should be [B]
+
         logits += 0.5*(logit_scale**2)*sigma.view(-1, n_class)
 
         loss_m = None
@@ -463,10 +474,13 @@ class KgCoOp(TrainerX):
             #kl-prgrad loss
             prograd_loss = REGULARIZER_REGISTRY.get("progradloss")
             kl_progrdloss = prograd_loss(stu_logits=logits,tea_logits=zs_log,label=label)
+            #MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT
+            explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
+            explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
 
             #proda-steps loss--------
             loss =  F.cross_entropy(output, label) #eccv_zs_loss
-            loss += 0.1 * loss_m + eccv_penalty_loss #+ margin_reg + 5.0*loss_mm_txt
+            loss += 0.1 * loss_m #+ margin_reg + 5.0*loss_mm_txt
             #-------------
             #F.cross_entropy(output, label)
             #loss = eccv_zs_loss + kl_progrdloss  #margin_reg+ 5.0*loss_mm_txt

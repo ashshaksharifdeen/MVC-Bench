@@ -1,6 +1,8 @@
 import argparse
-import torch
 
+
+import torch
+import time
 from dassl.utils import setup_logger, set_random_seed, collect_env_info
 from dassl.config import get_cfg_default
 from dassl.engine import build_trainer
@@ -26,7 +28,15 @@ import datasets.aptos
 import datasets.eyepacs
 import datasets.messidor
 import datasets.messidor_2
-
+import datasets.kather
+import datasets.digestpath
+import datasets.pannuke
+import datasets.covid
+import datasets.rsna18
+import datasets.FourtyX
+import datasets.HundredX
+import datasets.TwoHundredX
+import datasets.FourHundredX
 
 import trainers.coop
 import trainers.cocoop
@@ -38,6 +48,13 @@ import trainers.promptsrc
 import trainers.kgcoop
 import trainers.prograd
 import trainers.dapt
+import trainers.hrmcoop
+import trainers.hrmmaple
+import trainers.highencodermaple
+import trainers.mmrl
+import trainers.mmrlpp
+import trainers.hicropl
+import trainers.hicroplreason
 
 def print_args(args, cfg):
     print("***************")
@@ -105,6 +122,21 @@ def extend_cfg(cfg):
     cfg.TRAINER.COOP.PREC = "fp16"  # fp16, fp32, amp
     cfg.TRAINER.COOP.CLASS_TOKEN_POSITION = "end"  # 'middle' or 'end' or 'front'
 
+    # === NEW: HRMCoOp config ===
+    cfg.TRAINER.HRMCOOP = CN()
+    cfg.TRAINER.HRMCOOP.N_CTX = 16
+    cfg.TRAINER.HRMCOOP.CSC = False
+    cfg.TRAINER.HRMCOOP.CTX_INIT = ""     # or some phrase if you want init words
+    cfg.TRAINER.HRMCOOP.PREC = "fp16"     # fp16, fp32, amp
+    cfg.TRAINER.HRMCOOP.CLASS_TOKEN_POSITION = "end"
+
+
+    # HRM-style parameters (simple defaults)
+    cfg.TRAINER.HRMCOOP.H_CYCLES = 2      # number of high-level cycles
+    cfg.TRAINER.HRMCOOP.L_CYCLES = 2      # number of low-level cycles per H-step
+    cfg.TRAINER.HRMCOOP.N_HEADS  = 4
+    cfg.TRAINER.HRMCOOP.MLP_RATIO = 4.0 
+    
     cfg.TRAINER.COCOOP = CN()
     cfg.TRAINER.COCOOP.N_CTX = 16  # number of context vectors
     cfg.TRAINER.COCOOP.CTX_INIT = ""  # initialization words
@@ -120,6 +152,159 @@ def extend_cfg(cfg):
 
     cfg.TRAINER.MAPLE.MARGIN_ALPHA = 0.1   # default
     cfg.TRAINER.MAPLE.MARGIN_BETA  = 0.01  # default
+    # weights for the two regularizers (match paper defaults)
+    cfg.TRAINER.MAPLE.MARGIN_LAMBDA = 1.0
+    cfg.TRAINER.MAPLE.MOM_LAMBDA    = 5.0
+
+    # logging controls
+    cfg.TRAINER.MAPLE.SCALE_LOG_ENABLE = True
+    cfg.TRAINER.MAPLE.SCALE_LOG_EVERY  = 20     # log every N iterations
+    cfg.TRAINER.MAPLE.SCALE_LOG_GRADS  = True   # enable gradient-norm logging
+    cfg.TRAINER.MAPLE.SCALE_LOG_FILE   = "scale_grad_log.csv"
+    # --- add under cfg.TRAINER.MAPLE ---
+    cfg.TRAINER.MAPLE.PLOT_ANGDIST = False     # enable/disable plots
+    cfg.TRAINER.MAPLE.ANGDIST_MAX_BATCHES = 50 # vision: how many test batches to average
+    cfg.TRAINER.MAPLE.ANGDIST_MAX_CLASSES = 0  # text: 0 = all classes, else cap for speed
+
+    # Config for HiCroPL
+    cfg.TRAINER.HICROPL = CN()
+    cfg.TRAINER.HICROPL.N_CTX = 2 # number of context vectors
+    cfg.TRAINER.HICROPL.CROSS_LAYER = 6 # cross layer
+    cfg.TRAINER.HICROPL.CTX_INIT = "a photo of a" # initialization words (only for language prompts)
+    cfg.TRAINER.HICROPL.PREC = "fp32"
+    cfg.TRAINER.HICROPL.PROMPT_DEPTH = 9  # Max 12, minimum 0, for 1 it will act as shallow HICROPL (J=1)
+    cfg.TRAINER.HICROPL.TEACHER_NAME = "ViT-L/14"
+    cfg.TRAINER.HICROPL.LAMBD = 12.0
+    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+    # layerwise cross-modal cosine alignment
+    cfg.TRAINER.HICROPL.ALIGN_START = 2      # 0-based layer index
+    cfg.TRAINER.HICROPL.ALIGN_END = 8        # inclusive
+    cfg.TRAINER.HICROPL.ALIGN_LAMBDA = 1.0
+    cfg.TRAINER.HICROPL.ALIGN_T2V_HIDDEN = 1024
+    cfg.TRAINER.HICROPL.ALIGN_V2T_HIDDEN = 1024
+    cfg.TRAINER.HICROPL.ALIGN_DROPOUT = 0.0
+
+    # Config for HiCroPL
+    cfg.TRAINER.HICROPLReason = CN()
+    cfg.TRAINER.HICROPLReason.TRM_START_LAYER = 8 # human layer 3
+    cfg.TRAINER.HICROPLReason.TRM_END_LAYER = 11    # human layer 9
+    cfg.TRAINER.HICROPLReason.TRM_STEPS = 2
+    cfg.TRAINER.HICROPLReason.N_CTX = 2 # number of context vectors
+    cfg.TRAINER.HICROPLReason.CROSS_LAYER = 6 # cross layer
+    cfg.TRAINER.HICROPLReason.CTX_INIT = "a photo of a" # initialization words (only for language prompts)
+    cfg.TRAINER.HICROPLReason.PREC = "fp32"
+    cfg.TRAINER.HICROPLReason.PROMPT_DEPTH = 9  # Max 12, minimum 0, for 1 it will act as shallow HICROPL (J=1)
+    cfg.TRAINER.HICROPLReason.TEACHER_NAME = "ViT-L/14"
+    cfg.TRAINER.HICROPLReason.LAMBD = 12.0
+    cfg.TRAINER.HICROPLReason.ALIGN_START = 8
+    cfg.TRAINER.HICROPLReason.ALIGN_END = 11
+    cfg.TRAINER.HICROPLReason.ALIGN_LAMBDA = 15.0
+    cfg.TRAINER.HICROPLReason.ALIGN_T2V_HIDDEN = 1024
+    cfg.TRAINER.HICROPLReason.ALIGN_V2T_HIDDEN = 1024
+    cfg.TRAINER.HICROPLReason.AD_LAMBDA = 0.5
+    cfg.TRAINER.HICROPLReason.AD_TEXT_WEIGHT = 1.0
+    cfg.TRAINER.HICROPLReason.AD_VISION_WEIGHT = 1.0
+    cfg.TRAINER.HICROPLReason.ALIGN_DROPOUT = 0.0
+    # ---------------------------------------------------------
+    # Class-Normalized Orthogonal Probe Distillation
+    # ---------------------------------------------------------
+    cfg.TRAINER.HICROPLReason.PROBE_ENABLE = False  # set True to enable the probe loss
+
+    # Main weight for the full probe loss
+    cfg.TRAINER.HICROPLReason.PROBE_LAMBDA = 6.0
+
+    # Internal weights
+    cfg.TRAINER.HICROPLReason.PROBE_ANCHOR_WEIGHT = 1.0
+    cfg.TRAINER.HICROPLReason.PROBE_PAIR_WEIGHT = 0.5
+    cfg.TRAINER.HICROPLReason.PROBE_ORTH_WEIGHT = 0.05
+    cfg.TRAINER.HICROPLReason.DAPT_SAVE_PROTOTYPES = True
+    cfg.TRAINER.HICROPLReason.DAPT_INTRA_ENABLE = False
+    # For orthogonal separation.
+    # 0.05 is safer than exact zero, especially for many classes.
+    cfg.TRAINER.HICROPLReason.PROBE_ORTH_MARGIN = 0.05
+
+    # Stable initialization from frozen text features
+    cfg.TRAINER.HICROPLReason.PROBE_INIT_STD = 0.001
+    # ---------------------------------------------------------
+    # Prompt-only shared common transformer
+    # This does NOT modify pretrained CLIP hidden tokens.
+    # It only refines learnable text/vision prompts before injection.
+    # ---------------------------------------------------------
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_ENABLE = True
+
+    # These are the CLIP layer positions whose prompts should be refined.
+    # If COMMON_PROMPT_AFTER_LAYER = False:
+    #   layer 3 means prompt index 3 is refined and injected at block i=3.
+    # If COMMON_PROMPT_AFTER_LAYER = True:
+    #   layer 3 means prompt index 4 is refined, equivalent to inserting after layer 3.
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_LAYERS = [0, 1,2, 3, 4, 5, 6, 7, 8]
+
+    # Recommended for your current request:
+    # False = refine prompts before they are injected into layer 3, 6, 10.
+    # True  = equivalent to your previous "after 3rd, 6th, 10th layer" hidden-state injection.
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_AFTER_LAYER = False
+
+    # Common latent space for both text prompts and vision prompts
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_DIM = 512
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_HEADS = 8
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_DEPTH = 1
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_DROPOUT = 0.0
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_MIXER_DEPTH = 1
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_TOKEN_HIDDEN_MULT = 2.0
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_CHANNEL_HIDDEN_MULT = 4.0
+
+    # Stable residual prompt update
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_RESIDUAL_SCALE = 1.0
+    cfg.TRAINER.HICROPLReason.COMMON_PROMPT_GATE_INIT = -3.0
+    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+
+    #config for hrmmaple
+    cfg.TRAINER.HRMMAPLE = CN()
+    cfg.TRAINER.HRMMAPLE.USE_HRM = True
+    cfg.TRAINER.HRMMAPLE.USE_VHRM = True
+    cfg.TRAINER.HRMMAPLE.H_CYCLES = 2
+    cfg.TRAINER.HRMMAPLE.L_CYCLES = 2
+    cfg.TRAINER.HRMMAPLE.N_HEADS = 4
+    cfg.TRAINER.HRMMAPLE.MLP_RATIO = 4.0
+    cfg.TRAINER.HRMMAPLE.V_N_HEADS=8
+    cfg.TRAINER.HRMMAPLE.V_MLP_RATIO = 4.0
+    cfg.TRAINER.HRMMAPLE.V_H_CYCLES = 2
+    cfg.TRAINER.HRMMAPLE.V_L_CYCLES = 2
+
+    cfg.TRAINER.HRMMAPLE.USE_EMA_PROTO = True
+    cfg.TRAINER.HRMMAPLE.PROTO_MOMENTUM = 0.90
+    cfg.TRAINER.HRMMAPLE.NORM_PROTO = True
+    cfg.TRAINER.HRMMAPLE.PREC = "fp16" #"amp"
+    cfg.TRAINER.HRMMAPLE.ACT_ENABLE = True
+    cfg.TRAINER.HRMMAPLE.ACT_MAX_STEPS = 16
+    cfg.TRAINER.HRMMAPLE.ACT_HALT_THRESHOLD = 0.5  # inference threshold
+    cfg.TRAINER.HRMMAPLE.ACT_LAMBDA_Q = 1.0        # weight for Q losses
+    cfg.TRAINER.HRMMAPLE.ACT_LAMBDA_PONDER = 0.01  # per-step compute penalty (encourages early halt)
+
+    cfg.TRAINER.HRMMAPLE.ACT_EPSILON = 0.05        # optional exploration during training
+
+    #config for HighEncoderMaPLe
+    cfg.TRAINER.HighEncoderMaPLe = CN()
+    cfg.TRAINER.HighEncoderMaPLe.USE_HRM = True
+    cfg.TRAINER.HighEncoderMaPLe.USE_VHRM = True
+    cfg.TRAINER.HighEncoderMaPLe.H_CYCLES = 2
+    cfg.TRAINER.HighEncoderMaPLe.L_CYCLES = 2
+    cfg.TRAINER.HighEncoderMaPLe.N_HEADS = 4
+    cfg.TRAINER.HighEncoderMaPLe.MLP_RATIO = 4.0
+    cfg.TRAINER.HighEncoderMaPLe.V_N_HEADS=8
+    cfg.TRAINER.HighEncoderMaPLe.V_MLP_RATIO = 4.0
+    cfg.TRAINER.HighEncoderMaPLe.V_H_CYCLES = 2
+    cfg.TRAINER.HighEncoderMaPLe.V_L_CYCLES = 2
+    cfg.TRAINER.HighEncoderMaPLe.USE_EMA_PROTO = True
+    cfg.TRAINER.HighEncoderMaPLe.PROTO_MOMENTUM = 0.90
+    cfg.TRAINER.HighEncoderMaPLe.NORM_PROTO = True
+    cfg.TRAINER.HighEncoderMaPLe.PREC = "fp16" #"amp"
+    cfg.TRAINER.HighEncoderMaPLe.ACT_ENABLE = True
+    cfg.TRAINER.HighEncoderMaPLe.ACT_MAX_STEPS = 16
+    cfg.TRAINER.HighEncoderMaPLe.ACT_HALT_THRESHOLD = 0.5  # inference threshold
+    cfg.TRAINER.HighEncoderMaPLe.ACT_LAMBDA_Q = 1.0        # weight for Q losses
+    cfg.TRAINER.HighEncoderMaPLe.ACT_LAMBDA_PONDER = 0.01  # per-step compute penalty (encourages early halt)
+    cfg.TRAINER.HighEncoderMaPLe.ACT_EPSILON = 0.05        # optional exploration during training
 
     # Config for independent Vision Language prompting (independent-vlp)
     cfg.TRAINER.IVLP = CN()
@@ -152,7 +337,16 @@ def extend_cfg(cfg):
     cfg.TRAINER.PROMPTSRC.IMAGE_LOSS_WEIGHT = 10
     cfg.TRAINER.PROMPTSRC.GPA_MEAN = 15
     cfg.TRAINER.PROMPTSRC.GPA_STD = 1
+    # ---- Angular-distance plots (PromptSRC) ----
+    cfg.TRAINER.PROMPTSRC.PLOT_ANGDIST = False         # set True to enable
+    cfg.TRAINER.PROMPTSRC.ANGDIST_MAX_BATCHES = 50     # vision: limit batches for speed (None = full loader)
+    cfg.TRAINER.PROMPTSRC.ANGDIST_IN_DEGREES = True    # True: degrees, False: radians
+    cfg.TRAINER.PROMPTSRC.ANGDIST_SUBDIR = "angdist"   # where to save inside output-dir
+    cfg.TRAINER.PROMPTSRC.ANGDIST_SAVE_CSV = True
+    cfg.TRAINER.PROMPTSRC.ANGDIST_EPS = 1e-6            # numerical stability for acos/clam
+    cfg.TRAINER.PROMPTSRC.ANGDIST_SAVE_PNG = True
     cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+
 
     cfg.TRAINER.DAPT = CN()
     cfg.TRAINER.DAPT.VIS_NUM_TOKENS = 16
@@ -174,6 +368,12 @@ def extend_cfg(cfg):
     cfg.LOSS.ALPHA = 0.
     cfg.LOSS.T = 1.
     cfg.LOSS.LAMBDA = 1.
+    cfg.OPTIM.EPS = 1e-3
+    cfg.TEST.PLOT_ANGDIST = False          # set True when you want plots
+    cfg.TEST.ANGDIST_MAX_BATCHES = -1      # -1 = all test batches (safe default)
+    # Calibration metric settings
+    cfg.TEST.CALIBRATION_BINS = 20
+    cfg.TEST.SAVE_CLASSWISE_CALIBRATION = True
 
 def setup_cfg(args):
     cfg = get_cfg_default()
@@ -207,6 +407,8 @@ def main(args):
 
     if torch.cuda.is_available() and cfg.USE_CUDA:
         torch.backends.cudnn.benchmark = True
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
 
     print_args(args, cfg)
     print("Collecting env info ...")
@@ -220,8 +422,17 @@ def main(args):
         return
 
     if not args.no_train:
+        start = time.time()
         trainer.train()
-
+        torch.cuda.synchronize()
+        end = time.time()
+        total_time = end - start
+        if torch.cuda.is_available():
+            peak_mem = torch.cuda.max_memory_allocated() / (1024 ** 3)  # in GB
+        else:
+            peak_mem = 0.0
+        print(f"[PROFILE] Total train time: {total_time:.1f}s "
+          f"({total_time/60:.2f} min), peak GPU memory: {peak_mem:.2f} GB")        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

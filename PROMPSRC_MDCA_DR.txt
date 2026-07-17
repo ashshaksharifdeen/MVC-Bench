@@ -1,0 +1,118 @@
+========== ALL RESULTS (2025-10-26_19-55-21) ==========
+
+Parsing results for dataset: aptos
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_base/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/train_base/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 84.11%. macro_f1: 62.78%. ece: 12.67%. mce: 5.34%. adaptive_ece: 12.50%. 
+/storagepool/Ashshak/output/base2new/train_base/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 84.95%. macro_f1: 66.55%. ece: 15.13%. mce: 6.00%. adaptive_ece: 15.12%. 
+/storagepool/Ashshak/output/base2new/train_base/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 84.76%. macro_f1: 66.46%. ece: 13.80%. mce: 5.13%. adaptive_ece: 13.74%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/train_base/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 84.61% ± 0.36%
+* macro_f1: 65.26% ± 1.76%
+* ece: 13.87% ± 1.01%
+* mce: 5.49% ± 0.37%
+* adaptive_ece: 13.79% ± 1.07%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_new/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/test_new/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 84.05%. macro_f1: 62.24%. ece: 12.67%. mce: 5.41%. adaptive_ece: 12.49%. 
+/storagepool/Ashshak/output/base2new/test_new/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 84.84%. macro_f1: 66.30%. ece: 15.03%. mce: 6.01%. adaptive_ece: 15.01%. 
+/storagepool/Ashshak/output/base2new/test_new/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 84.74%. macro_f1: 66.42%. ece: 13.67%. mce: 5.07%. adaptive_ece: 13.67%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/test_new/aptos/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 84.54% ± 0.35%
+* macro_f1: 64.99% ± 1.94%
+* ece: 13.79% ± 0.97%
+* mce: 5.50% ± 0.39%
+* adaptive_ece: 13.72% ± 1.03%
+===
+-----------------------------
+
+Parsing results for dataset: eyepacs
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_base/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/train_base/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 77.69%. macro_f1: 38.65%. ece: 5.76%. mce: 4.69%. adaptive_ece: 5.76%. 
+/storagepool/Ashshak/output/base2new/train_base/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 77.91%. macro_f1: 40.82%. ece: 6.91%. mce: 3.83%. adaptive_ece: 6.91%. 
+/storagepool/Ashshak/output/base2new/train_base/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 77.84%. macro_f1: 39.60%. ece: 7.57%. mce: 5.45%. adaptive_ece: 7.56%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/train_base/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 77.81% ± 0.09%
+* macro_f1: 39.69% ± 0.89%
+* ece: 6.75% ± 0.75%
+* mce: 4.66% ± 0.66%
+* adaptive_ece: 6.74% ± 0.74%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_new/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/test_new/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 77.71%. macro_f1: 38.74%. ece: 6.22%. mce: 5.17%. adaptive_ece: 6.22%. 
+/storagepool/Ashshak/output/base2new/test_new/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 77.91%. macro_f1: 40.86%. ece: 7.01%. mce: 3.92%. adaptive_ece: 7.01%. 
+/storagepool/Ashshak/output/base2new/test_new/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 77.84%. macro_f1: 39.56%. ece: 7.59%. mce: 5.48%. adaptive_ece: 7.58%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/test_new/eyepacs/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 77.82% ± 0.08%
+* macro_f1: 39.72% ± 0.87%
+* ece: 6.94% ± 0.56%
+* mce: 4.86% ± 0.67%
+* adaptive_ece: 6.94% ± 0.56%
+===
+-----------------------------
+
+Parsing results for dataset: messidor
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_base/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/train_base/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 60.25%. macro_f1: 36.71%. ece: 7.75%. mce: 3.32%. adaptive_ece: 7.85%. 
+/storagepool/Ashshak/output/base2new/train_base/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 62.33%. macro_f1: 38.61%. ece: 9.39%. mce: 4.31%. adaptive_ece: 9.55%. 
+/storagepool/Ashshak/output/base2new/train_base/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 60.50%. macro_f1: 36.79%. ece: 9.09%. mce: 3.55%. adaptive_ece: 8.85%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/train_base/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 61.03% ± 0.93%
+* macro_f1: 37.37% ± 0.88%
+* ece: 8.74% ± 0.71%
+* mce: 3.73% ± 0.42%
+* adaptive_ece: 8.75% ± 0.70%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_new/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/test_new/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 60.58%. macro_f1: 36.87%. ece: 8.16%. mce: 3.58%. adaptive_ece: 8.67%. 
+/storagepool/Ashshak/output/base2new/test_new/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 62.33%. macro_f1: 38.61%. ece: 9.36%. mce: 4.18%. adaptive_ece: 9.71%. 
+/storagepool/Ashshak/output/base2new/test_new/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 60.33%. macro_f1: 36.71%. ece: 9.21%. mce: 3.45%. adaptive_ece: 9.07%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/test_new/messidor/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 61.08% ± 0.89%
+* macro_f1: 37.40% ± 0.86%
+* ece: 8.91% ± 0.53%
+* mce: 3.74% ± 0.32%
+* adaptive_ece: 9.15% ± 0.43%
+===
+-----------------------------
+
+Parsing results for dataset: messidor_2
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_base/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/train_base/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 68.18%. macro_f1: 34.93%. ece: 9.11%. mce: 3.08%. adaptive_ece: 9.38%. 
+/storagepool/Ashshak/output/base2new/train_base/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 67.78%. macro_f1: 37.80%. ece: 9.25%. mce: 3.33%. adaptive_ece: 9.25%. 
+/storagepool/Ashshak/output/base2new/train_base/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 66.11%. macro_f1: 33.60%. ece: 10.00%. mce: 3.38%. adaptive_ece: 10.87%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/train_base/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 67.36% ± 0.90%
+* macro_f1: 35.44% ± 1.75%
+* ece: 9.45% ± 0.39%
+* mce: 3.26% ± 0.13%
+* adaptive_ece: 9.83% ± 0.73%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_new/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output/base2new/test_new/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 68.23%. macro_f1: 34.97%. ece: 9.21%. mce: 3.19%. adaptive_ece: 9.78%. 
+/storagepool/Ashshak/output/base2new/test_new/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 68.06%. macro_f1: 38.24%. ece: 9.77%. mce: 2.88%. adaptive_ece: 9.77%. 
+/storagepool/Ashshak/output/base2new/test_new/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 66.11%. macro_f1: 33.81%. ece: 10.18%. mce: 3.39%. adaptive_ece: 10.46%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/test_new/messidor_2/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 67.47% ± 0.96%
+* macro_f1: 35.67% ± 1.88%
+* ece: 9.72% ± 0.40%
+* mce: 3.15% ± 0.21%
+* adaptive_ece: 10.00% ± 0.32%
+===
+-----------------------------
+

@@ -38,6 +38,15 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
+    "APTOS": "a photo of a {}.",
+    "EYEPACS": "a photo of a {}.",
+    "MESSIDOR": "a photo of a {}.",
+    "MESSIDOR_2": "a photo of a {}.",
+    "PanNuke": "a photo of a {}.",
+    "KatherColon": "a photo of a {}.",
+    "DigestPath": "a photo of a {}.",
+    "RSNA18": "a photo of a {}.",
+    "Covid": "a photo of a {}.",
 }
 
 
@@ -437,7 +446,8 @@ class ProGrad(TrainerX):
             eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
             eccv_zs_loss = eccv_zs(zs_pred=zs_clip_output.to(device=output.device), output=output,label=label)
             eccv_zs_loss = eccv_zs_loss.to(dtype).to(device)
-            
+            explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
+            explicit_all_loss =explicit_all(output,label,variance_mode="all_pairs")
 
             xe_loss = xe_loss.to(dtype).to(device)
             kl_loss = kl_loss.to(dtype).to(device)
@@ -446,9 +456,9 @@ class ProGrad(TrainerX):
             print(f"kl_loss  dtype={kl_loss.dtype}")
             print(f"margin   dtype={margin_reg.dtype}")
             print(f"mm_txt   dtype={loss_mm_txt.dtype}")
-            loss = (xe_loss+  kl_loss + margin_reg+ 5.0*loss_mm_txt)
-            #self.prograd_backward_and_update(xe_loss, kl_loss,
-            #                                     self.cfg.LOSS.LAMBDA)
+            loss = (xe_loss+  kl_loss + margin_reg + 5 * loss_mm_txt)
+            #loss = (xe_loss.float() + kl_loss.float() + margin_reg.float() + 5.0 * loss_mm_txt.float())
+            #self.prograd_backward_and_update(xe_loss, kl_loss, self.cfg.LOSS.LAMBDA)
             #loss = loss.to(self.model.text_encoder.dtype)
             self.model_backward_and_update(loss)
         loss_summary = {

@@ -1,0 +1,60 @@
+========== ALL RESULTS (2026-02-11_17-48-54) ==========
+
+Parsing results for dataset: rsna18
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output3/base2new/train_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output3/base2new/train_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 40.36%. macro_f1: 19.17%. ece: 1.15%. mce: 0.68%. adaptive_ece: 2.76%. 
+/storagepool/Ashshak/output3/base2new/train_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 40.36%. macro_f1: 19.17%. ece: 1.07%. mce: 0.98%. adaptive_ece: 2.35%. 
+/storagepool/Ashshak/output3/base2new/train_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 40.36%. macro_f1: 19.17%. ece: 1.80%. mce: 1.67%. adaptive_ece: 2.86%. 
+===
+Summary of directory: /storagepool/Ashshak/output3/base2new/train_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 40.36% ± 0.00%
+* macro_f1: 19.17% ± 0.00%
+* ece: 0.64% ± 0.33%
+* mce: 0.11% ± 0.41%
+* adaptive_ece: 2.66% ± 0.22%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output3/base2new/test_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output3/base2new/test_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 40.36%. macro_f1: 19.17%. ece: 1.15%. mce: 0.66%. adaptive_ece: 3.29%. 
+/storagepool/Ashshak/output3/base2new/test_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 40.36%. macro_f1: 19.17%. ece: 0.90%. mce: 0.70%. adaptive_ece: 2.53%. 
+/storagepool/Ashshak/output3/base2new/test_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 40.36%. macro_f1: 19.17%. ece: 1.90%. mce: 1.76%. adaptive_ece: 2.46%. 
+===
+Summary of directory: /storagepool/Ashshak/output3/base2new/test_all/rsna18/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 40.36% ± 0.00%
+* macro_f1: 19.17% ± 0.00%
+* ece: 1.12% ± 0.42%
+* mce: 1.04% ± 0.51%
+* adaptive_ece: 2.76% ± 0.38%
+===
+-----------------------------
+
+Parsing results for dataset: covid
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output3/base2new/train_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output3/base2new/train_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 75.70%. macro_f1: 50.41%. ece: 12.77%. mce: 9.99%. adaptive_ece: 13.23%. 
+/storagepool/Ashshak/output3/base2new/train_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 76.12%. macro_f1: 55.17%. ece: 15.07%. mce: 8.20%. adaptive_ece: 15.07%. 
+/storagepool/Ashshak/output3/base2new/train_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 74.06%. macro_f1: 43.98%. ece: 13.35%. mce: 9.37%. adaptive_ece: 15.61%. 
+===
+Summary of directory: /storagepool/Ashshak/output3/base2new/train_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 75.29% ± 0.89%
+* macro_f1: 49.85% ± 4.59%
+* ece: 13.73% ± 0.98%
+* mce: 8.19% ± 0.74%
+* adaptive_ece: 14.34% ± 1.02%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output3/base2new/test_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+/storagepool/Ashshak/output3/base2new/test_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed1/log.txt  accuracy: 75.75%. macro_f1: 50.65%. ece: 12.89%. mce: 10.01%. adaptive_ece: 13.20%. 
+/storagepool/Ashshak/output3/base2new/test_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed2/log.txt  accuracy: 76.07%. macro_f1: 55.27%. ece: 15.21%. mce: 8.12%. adaptive_ece: 15.12%. 
+/storagepool/Ashshak/output3/base2new/test_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx/seed3/log.txt  accuracy: 74.07%. macro_f1: 44.09%. ece: 13.41%. mce: 9.26%. adaptive_ece: 15.66%. 
+===
+Summary of directory: /storagepool/Ashshak/output3/base2new/test_all/covid/shots_16/PromptSRC/vit_b16_c2_ep20_batch4_4+4ctx
+* accuracy: 75.30% ± 0.88%
+* macro_f1: 50.00% ± 4.59%
+* ece: 13.84% ± 0.99%
+* mce: 8.13% ± 0.78%
+* adaptive_ece: 14.36% ± 1.06%
+===
+-----------------------------
+

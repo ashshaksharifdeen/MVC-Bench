@@ -1,0 +1,38 @@
+========== ALL RESULTS (2026-03-11_15-35-23) ==========
+
+Parsing results for dataset: rsna18
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+/storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets/seed1/log.txt  accuracy: 34.35%. macro_f1: 21.78%. ece: 9.43%. mce: 7.74%. adaptive_ece: 9.43%. 
+/storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets/seed2/log.txt  accuracy: 29.88%. macro_f1: 15.97%. ece: 10.18%. mce: 8.12%. adaptive_ece: 10.48%. 
+/storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets/seed3/log.txt  accuracy: 29.41%. macro_f1: 17.56%. ece: 11.91%. mce: 9.95%. adaptive_ece: 12.15%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/train_all/rsna18/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+* accuracy: 34.21% ± 2.23%
+* macro_f1: 18.44% ± 2.45%
+* ece: 4.51% ± 1.04%
+* mce: 4.60% ± 0.96%
+* adaptive_ece: 4.69% ± 1.12%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_all/rsna18/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+-----------------------------
+
+Parsing results for dataset: covid
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/train_all/covid/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output/base2new/test_all/covid/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+/storagepool/Ashshak/output/base2new/test_all/covid/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets/seed1/log.txt  accuracy: 40.77%. macro_f1: 39.20%. ece: 12.99%. mce: 12.14%. adaptive_ece: 12.98%. 
+/storagepool/Ashshak/output/base2new/test_all/covid/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets/seed2/log.txt  accuracy: 73.83%. macro_f1: 42.53%. ece: 19.42%. mce: 19.00%. adaptive_ece: 18.59%. 
+/storagepool/Ashshak/output/base2new/test_all/covid/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets/seed3/log.txt  accuracy: 48.32%. macro_f1: 43.81%. ece: 3.69%. mce: 3.68%. adaptive_ece: 3.94%. 
+===
+Summary of directory: /storagepool/Ashshak/output/base2new/test_all/covid/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+* accuracy: 65.31% ± 14.14%
+* macro_f1: 41.85% ± 1.94%
+* ece: 11.03% ± 6.46%
+* mce: 8.61% ± 6.27%
+* adaptive_ece: 11.84% ± 6.04%
+===
+-----------------------------
+

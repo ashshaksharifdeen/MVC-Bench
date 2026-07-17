@@ -1,5 +1,5 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base config
 DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"

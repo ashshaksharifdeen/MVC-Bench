@@ -267,7 +267,7 @@ class CustomCLIP(nn.Module):
         self.logit_scale = clip_model.logit_scale
         self.dtype = clip_model.dtype
 
-    def forward(self, image):
+    def forward(self, image, label):
         image_features = self.image_encoder(image.type(self.dtype))
 
         prompts = self.prompt_learner()
@@ -308,6 +308,13 @@ class CoOp(TrainerX):
 
         print(f"Loading CLIP (backbone: {cfg.MODEL.BACKBONE.NAME})")
         clip_model = load_clip_to_cpu(cfg)
+        # --- Parameter counts for the CLIP backbone ---
+        clip_total_params = sum(p.numel() for p in clip_model.parameters())
+        clip_trainable_params = sum(p.numel() for p in clip_model.parameters() if p.requires_grad)
+
+        print(f"[PARAM] CLIP backbone total params: {clip_total_params/1e6:.2f} M")
+        print(f"[PARAM] CLIP backbone trainable params (before freezing): "
+              f"{clip_trainable_params/1e6:.2f} M")
         
         if cfg.TRAINER.COOP.PREC == "fp32" or cfg.TRAINER.COOP.PREC == "amp":
             # CLIP's default precision is fp16
@@ -320,6 +327,27 @@ class CoOp(TrainerX):
         for name, param in self.model.named_parameters():
             if "prompt_learner" not in name:
                 param.requires_grad_(False)
+
+        # --- Parameter counts for the full CoOp model ---
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(
+            p.numel() for p in self.model.parameters()
+            if p.requires_grad
+        )
+
+        # Prompt-learner-only params (this is what CoOp actually trains)
+        prompt_params = sum(
+            p.numel() for p in self.model.prompt_learner.parameters()
+        )
+        prompt_trainable_params = sum(
+            p.numel() for p in self.model.prompt_learner.parameters()
+            if p.requires_grad
+        )
+
+        print(f"[PARAM] Full CoOp model total params: {total_params/1e6:.2f} M")
+        print(f"[PARAM] Trainable params (all modules): {trainable_params/1e6:.2f} M")
+        print(f"[PARAM] Prompt-learner params total: {prompt_params/1e6:.2f} M")
+        print(f"[PARAM] Prompt-learner TRAINABLE params: {prompt_trainable_params/1e6:.2f} M")        
 
         if cfg.MODEL.INIT_WEIGHTS:
             load_pretrained_weights(self.model.prompt_learner, cfg.MODEL.INIT_WEIGHTS)
@@ -352,14 +380,14 @@ class CoOp(TrainerX):
         prec = self.cfg.TRAINER.COOP.PREC
         if prec == "amp":
             with autocast():
-                output = self.model(image)
+                output = self.model(image,label)
                 loss = F.cross_entropy(output, label)
             self.optim.zero_grad()
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optim)
             self.scaler.update()
         else:
-            output = self.model(image)
+            output = self.model(image,label)
 
             #cross model zs alignment-----------
             # grab MaPLe features
@@ -475,10 +503,13 @@ class CoOp(TrainerX):
             #mean var edit
             margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
             margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='per_sample')
+            #MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT
+            explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
+            explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
             #end-----    
 
             loss = F.cross_entropy(output, label)
-            #loss+=label_smooth_loss  #marg  00 in_reg + loss_mm_txt       #eccv_penalty_loss                          #(margin_reg +(5.0* loss_mm_txt))
+            #loss+=explicit_all_loss  #label_smooth_loss  #marg  00 in_reg + loss_mm_txt       #eccv_penalty_loss                          #(margin_reg +(5.0* loss_mm_txt))
             self.model_backward_and_update(loss) #eccv_zs_loss
 
         loss_summary = {

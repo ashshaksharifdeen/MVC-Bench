@@ -1,0 +1,104 @@
+========== ALL RESULTS (2026-06-07_18-02-16) ==========
+
+Parsing results for dataset: dtd
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 84.72%. error_rate: 15.28%. macro_f1: 84.47%. ece: 4.52%. mce: 0.90%. ace: 3.88%. brier: 0.223676. brier_norm: 0.009320. toplabel_ece_macro: 13.85%. toplabel_ece_weighted: 13.85%. toplabel_ece_max: 26.96%. ovr_ece_macro: 1.18%. ovr_ece_weighted: 1.18%. ovr_ece_max: 2.18%. classwise_brier_macro: 0.223676. classwise_brier_norm_macro: 0.009320. 
+/storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed2/log.txt  accuracy: 84.49%. error_rate: 15.51%. macro_f1: 84.30%. ece: 4.94%. mce: 1.08%. ace: 5.12%. brier: 0.234131. brier_norm: 0.009755. toplabel_ece_macro: 15.20%. toplabel_ece_weighted: 15.20%. toplabel_ece_max: 28.04%. ovr_ece_macro: 1.11%. ovr_ece_weighted: 1.11%. ovr_ece_max: 2.00%. classwise_brier_macro: 0.234131. classwise_brier_norm_macro: 0.009755. 
+/storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed3/log.txt  accuracy: 84.26%. error_rate: 15.74%. macro_f1: 83.98%. ece: 4.46%. mce: 1.17%. ace: 4.00%. brier: 0.229069. brier_norm: 0.009545. toplabel_ece_macro: 14.59%. toplabel_ece_weighted: 14.59%. toplabel_ece_max: 26.46%. ovr_ece_macro: 1.23%. ovr_ece_weighted: 1.23%. ovr_ece_max: 1.98%. classwise_brier_macro: 0.229069. classwise_brier_norm_macro: 0.009545. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 84.49% ± 0.19%
+* error_rate: 15.51% ± 0.19%
+* macro_f1: 84.25% ± 0.20%
+* ece: 4.64% ± 0.21%
+* mce: 1.05% ± 0.11%
+* ace: 4.33% ± 0.56%
+* brier: 0.228959 ± 0.004269
+* brier_norm: 0.009540 ± 0.000178
+* toplabel_ece_macro: 14.55% ± 0.55%
+* toplabel_ece_weighted: 14.55% ± 0.55%
+* toplabel_ece_max: 27.15% ± 0.66%
+* ovr_ece_macro: 1.17% ± 0.05%
+* ovr_ece_weighted: 1.17% ± 0.05%
+* ovr_ece_max: 2.05% ± 0.09%
+* classwise_brier_macro: 0.228959 ± 0.004269
+* classwise_brier_norm_macro: 0.009540 ± 0.000178
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 69.20%. error_rate: 30.80%. macro_f1: 68.76%. ece: 5.82%. mce: 1.11%. ace: 3.75%. brier: 0.431608. brier_norm: 0.018766. toplabel_ece_macro: 21.73%. toplabel_ece_weighted: 21.73%. toplabel_ece_max: 41.34%. ovr_ece_macro: 1.80%. ovr_ece_weighted: 1.80%. ovr_ece_max: 3.26%. classwise_brier_macro: 0.431608. classwise_brier_norm_macro: 0.018766. 
+/storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed2/log.txt  accuracy: 65.82%. error_rate: 34.18%. macro_f1: 64.59%. ece: 4.88%. mce: 0.86%. ace: 3.95%. brier: 0.453669. brier_norm: 0.019725. toplabel_ece_macro: 19.17%. toplabel_ece_weighted: 19.17%. toplabel_ece_max: 45.00%. ovr_ece_macro: 1.82%. ovr_ece_weighted: 1.82%. ovr_ece_max: 3.22%. classwise_brier_macro: 0.453669. classwise_brier_norm_macro: 0.019725. 
+/storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed3/log.txt  accuracy: 66.30%. error_rate: 33.70%. macro_f1: 65.41%. ece: 4.29%. mce: 1.46%. ace: 3.31%. brier: 0.459804. brier_norm: 0.019991. toplabel_ece_macro: 21.00%. toplabel_ece_weighted: 21.00%. toplabel_ece_max: 35.40%. ovr_ece_macro: 1.91%. ovr_ece_weighted: 1.91%. ovr_ece_max: 3.47%. classwise_brier_macro: 0.459804. classwise_brier_norm_macro: 0.019991. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 67.11% ± 1.49%
+* error_rate: 32.89% ± 1.49%
+* macro_f1: 66.25% ± 1.80%
+* ece: 5.00% ± 0.63%
+* mce: 1.14% ± 0.25%
+* ace: 3.67% ± 0.27%
+* brier: 0.448360 ± 0.012108
+* brier_norm: 0.019494 ± 0.000526
+* toplabel_ece_macro: 20.63% ± 1.08%
+* toplabel_ece_weighted: 20.63% ± 1.08%
+* toplabel_ece_max: 40.58% ± 3.96%
+* ovr_ece_macro: 1.84% ± 0.05%
+* ovr_ece_weighted: 1.84% ± 0.05%
+* ovr_ece_max: 3.32% ± 0.11%
+* classwise_brier_macro: 0.448360 ± 0.012108
+* classwise_brier_norm_macro: 0.019494 ± 0.000526
+===
+-----------------------------
+
+Parsing results for dataset: ucf101
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 86.04%. error_rate: 13.96%. macro_f1: 85.45%. ece: 2.77%. mce: 0.66%. ace: 2.32%. brier: 0.191284. brier_norm: 0.003751. toplabel_ece_macro: 11.54%. toplabel_ece_weighted: 11.30%. toplabel_ece_max: 30.33%. ovr_ece_macro: 0.48%. ovr_ece_weighted: 0.48%. ovr_ece_max: 1.33%. classwise_brier_macro: 0.196591. classwise_brier_norm_macro: 0.003855. 
+/storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed2/log.txt  accuracy: 87.18%. error_rate: 12.82%. macro_f1: 86.37%. ece: 3.37%. mce: 0.90%. ace: 2.51%. brier: 0.182426. brier_norm: 0.003577. toplabel_ece_macro: 11.63%. toplabel_ece_weighted: 11.34%. toplabel_ece_max: 36.14%. ovr_ece_macro: 0.46%. ovr_ece_weighted: 0.46%. ovr_ece_max: 1.55%. classwise_brier_macro: 0.189122. classwise_brier_norm_macro: 0.003708. 
+/storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed3/log.txt  accuracy: 86.97%. error_rate: 13.03%. macro_f1: 85.99%. ece: 2.88%. mce: 0.67%. ace: 2.43%. brier: 0.187863. brier_norm: 0.003684. toplabel_ece_macro: 11.27%. toplabel_ece_weighted: 10.97%. toplabel_ece_max: 29.54%. ovr_ece_macro: 0.46%. ovr_ece_weighted: 0.46%. ovr_ece_max: 1.19%. classwise_brier_macro: 0.195689. classwise_brier_norm_macro: 0.003837. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 86.73% ± 0.50%
+* error_rate: 13.27% ± 0.50%
+* macro_f1: 85.94% ± 0.38%
+* ece: 3.01% ± 0.26%
+* mce: 0.74% ± 0.11%
+* ace: 2.42% ± 0.08%
+* brier: 0.187191 ± 0.003647
+* brier_norm: 0.003671 ± 0.000072
+* toplabel_ece_macro: 11.48% ± 0.15%
+* toplabel_ece_weighted: 11.20% ± 0.17%
+* toplabel_ece_max: 32.00% ± 2.94%
+* ovr_ece_macro: 0.47% ± 0.01%
+* ovr_ece_weighted: 0.47% ± 0.01%
+* ovr_ece_max: 1.36% ± 0.15%
+* classwise_brier_macro: 0.193801 ± 0.003329
+* classwise_brier_norm_macro: 0.003800 ± 0.000065
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 78.53%. error_rate: 21.47%. macro_f1: 76.90%. ece: 3.39%. mce: 0.55%. ace: 1.79%. brier: 0.294335. brier_norm: 0.005887. toplabel_ece_macro: 17.16%. toplabel_ece_weighted: 16.97%. toplabel_ece_max: 69.76%. ovr_ece_macro: 0.73%. ovr_ece_weighted: 0.73%. ovr_ece_max: 2.50%. classwise_brier_macro: 0.295569. classwise_brier_norm_macro: 0.005911. 
+/storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed2/log.txt  accuracy: 80.48%. error_rate: 19.52%. macro_f1: 78.79%. ece: 2.99%. mce: 0.56%. ace: 2.74%. brier: 0.270114. brier_norm: 0.005402. toplabel_ece_macro: 15.54%. toplabel_ece_weighted: 15.51%. toplabel_ece_max: 55.63%. ovr_ece_macro: 0.69%. ovr_ece_weighted: 0.69%. ovr_ece_max: 2.13%. classwise_brier_macro: 0.272421. classwise_brier_norm_macro: 0.005448. 
+/storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed3/log.txt  accuracy: 79.72%. error_rate: 20.28%. macro_f1: 77.68%. ece: 2.47%. mce: 0.41%. ace: 1.48%. brier: 0.281177. brier_norm: 0.005624. toplabel_ece_macro: 16.55%. toplabel_ece_weighted: 16.45%. toplabel_ece_max: 55.63%. ovr_ece_macro: 0.73%. ovr_ece_weighted: 0.72%. ovr_ece_max: 1.83%. classwise_brier_macro: 0.285073. classwise_brier_norm_macro: 0.005701. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 79.58% ± 0.80%
+* error_rate: 20.42% ± 0.80%
+* macro_f1: 77.79% ± 0.78%
+* ece: 2.95% ± 0.38%
+* mce: 0.51% ± 0.07%
+* ace: 2.00% ± 0.54%
+* brier: 0.281875 ± 0.009901
+* brier_norm: 0.005638 ± 0.000198
+* toplabel_ece_macro: 16.42% ± 0.67%
+* toplabel_ece_weighted: 16.31% ± 0.60%
+* toplabel_ece_max: 60.34% ± 6.66%
+* ovr_ece_macro: 0.72% ± 0.02%
+* ovr_ece_weighted: 0.71% ± 0.02%
+* ovr_ece_max: 2.15% ± 0.27%
+* classwise_brier_macro: 0.284354 ± 0.009464
+* classwise_brier_norm_macro: 0.005687 ± 0.000189
+===
+-----------------------------
+

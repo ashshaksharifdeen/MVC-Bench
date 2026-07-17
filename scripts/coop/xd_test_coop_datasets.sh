@@ -4,7 +4,7 @@ export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base config
 DATA="/storagepool/Ashshak/DR"
 TRAINER=CoOp
-CFG=rn50_ep50 
+CFG=rn50_ep50     #vit_b16_ep50    #rn50_ep50 
 SHOTS=16
 LOADEP=50
 SUB=all

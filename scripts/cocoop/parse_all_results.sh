@@ -1,5 +1,5 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets to process

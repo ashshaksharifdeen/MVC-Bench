@@ -2,9 +2,9 @@
 GPU_ID="${1:-2}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base config
-DATA="/storagepool/Ashshak/DR"  #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"  #"/storagepool/Ashshak/DR"
+DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"  #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"  #"/storagepool/Ashshak/DR"
 TRAINER=CoOp
-CFG=rn50_ep50 #vit_b32_ep50     #vit_b16_ep50
+CFG=vit_b16_ep50 #rn101_ep50    #vit_b16_ep50    #rn50_ep50 #vit_b32_ep50     #vit_b16_ep50
 CTP=middle 
 NCTX=16
 SHOTS=16
@@ -14,15 +14,15 @@ SUB=new
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 ##aptos eyepacs messidor messidor_2
 # List of datasets and seeds
-DATASETS=(aptos eyepacs messidor messidor_2)
+DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 SEEDS=(1 2 3)
 
 # Loop through datasets and seeds
 for DATASET in "${DATASETS[@]}"; do
     for SEED in "${SEEDS[@]}"; do
         COMMON_DIR=${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
-        MODEL_DIR=/storagepool/Ashshak/output/base2new/train_base/${COMMON_DIR}
-        DIR=/storagepool/Ashshak/output/base2new/test_${SUB}/${COMMON_DIR}
+        MODEL_DIR=/storagepool/Ashshak/output4/base2new/train_base/${COMMON_DIR}
+        DIR=/storagepool/Ashshak/output4/base2new/test_${SUB}/${COMMON_DIR}
 
         echo "---------------------------------------------"
         echo "Evaluating ${DATASET} | Seed ${SEED}"

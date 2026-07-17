@@ -1,0 +1,52 @@
+========== ALL RESULTS (2026-04-20_17-13-34) ==========
+
+Parsing results for dataset: dtd
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 82.18%. macro_f1: 81.89%. ece: 7.89%. mce: 4.15%. adaptive_ece: 7.85%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 82.18% ± 0.00%
+* macro_f1: 81.89% ± 0.00%
+* ece: 7.89% ± 0.00%
+* mce: 4.15% ± 0.00%
+* adaptive_ece: 7.85% ± 0.00%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 57.49%. macro_f1: 55.67%. ece: 21.84%. mce: 7.78%. adaptive_ece: 21.84%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/dtd/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 57.49% ± 0.00%
+* macro_f1: 55.67% ± 0.00%
+* ece: 21.84% ± 0.00%
+* mce: 7.78% ± 0.00%
+* adaptive_ece: 21.84% ± 0.00%
+===
+-----------------------------
+
+Parsing results for dataset: ucf101
+--- Base classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 87.44%. macro_f1: 86.85%. ece: 2.02%. mce: 0.85%. adaptive_ece: 2.01%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/train_base/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 87.44% ± 0.00%
+* macro_f1: 86.85% ± 0.00%
+* ece: 2.02% ± 0.00%
+* mce: 0.85% ± 0.00%
+* adaptive_ece: 2.01% ± 0.00%
+===
+--- Novel classes ---
+Parsing files in /storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+/storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx/seed1/log.txt  accuracy: 75.82%. macro_f1: 71.95%. ece: 7.73%. mce: 3.81%. adaptive_ece: 7.01%. 
+===
+Summary of directory: /storagepool/Ashshak/output2/base2new/test_new/ucf101/shots_16/HiCroPLReason/vit_b16_c2_ep50_batch32_16ctx
+* accuracy: 75.82% ± 0.00%
+* macro_f1: 71.95% ± 0.00%
+* ece: 7.73% ± 0.00%
+* mce: 3.81% ± 0.00%
+* adaptive_ece: 7.01% ± 0.00%
+===
+-----------------------------
+

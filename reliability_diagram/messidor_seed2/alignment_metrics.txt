@@ -1,3 +1,0 @@
-Prompt: a photo of a
-Accuracy: 51.75%
-ECE: 3.48%

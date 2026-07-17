@@ -81,7 +81,12 @@ def main(args):
     cfg.merge_from_file(args.config_file)
     cfg.defrost()
     cfg.SEED = seed
-    cfg.TRAINER.NAME = "MaPLe"
+    cfg.TRAINER.NAME = "MaPLe" #"MaPLe" #CoOp
+    #cfg.TRAINER.COOP.N_CTX = 16  # number of context vectors
+    #cfg.TRAINER.COOP.CSC = False  # class-specific context
+    #cfg.TRAINER.COOP.CTX_INIT = False #""  # initialization words #set false for Kgcoop
+    #cfg.TRAINER.COOP.PREC = "fp16"  # fp16, fp32, amp
+    #cfg.TRAINER.COOP.CLASS_TOKEN_POSITION = "end"  # 'middle' or 'end' or 'front'
     cfg.TRAINER.MAPLE.CTX_INIT = prompt
     cfg.DATASET.SUBSAMPLE_CLASSES = args.subsample_classes
     cfg.freeze()

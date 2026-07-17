@@ -4,11 +4,11 @@
 ROOT="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"
 CONFIG="configs/trainers/MaPLe/vit_b16_c2_ep5_batch4_2ctx.yaml"
 LOAD_EPOCH=5
-SUBSAMPLE="base"
+SUBSAMPLE="new"
 
 # List of datasets to loop through
 #"fgvc_aircraft" "stanford_cars" "sun397"
-datasets=("messidor_2")
+datasets=("oxford_flowers")
 
 # Loop through each dataset in the list
 for dataset in "${datasets[@]}"; do
@@ -16,7 +16,7 @@ for dataset in "${datasets[@]}"; do
 
   # Set dataset-specific variables
   DATASET_CFG="configs/datasets/${dataset}.yaml"
-  MODEL_DIR="/storagepool/Ashshak/output2/base2new/train_base/${dataset}/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx"
+  MODEL_DIR="/storagepool/Ashshak/output3/base2new/train_base/${dataset}/shots_16/MaPLe/vit_b16_c2_ep5_batch4_2ctx"
   OUTPUT_DIR="reliability_diagram/${dataset}_seed3"
 
   # Run the evaluation script with the specified arguments for the current dataset

@@ -3,12 +3,12 @@ GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets to process
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)  #(aptos eyepacs messidor messidor_2)   #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 
 # Common settings
 
 TRAINER=ZeroshotCLIP
-CFG=vit_b16_ep50 #vit_b16_c2_ep5_batch4_2ctx_cross_datasets #vit_b16_c2_ep5_batch4_2ctx
+CFG=vit_b16 #rn101_ep50 #vit_b16_c2_ep5_batch4_2ctx_cross_datasets #vit_b16_c2_ep5_batch4_2ctx
 
 # Timestamped logfile name
 TIMESTAMP=$(date +%F_%H-%M-%S)

@@ -1,12 +1,12 @@
 #!/bin/bash
-GPU_ID="${1:-2}"
+GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets to process
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat) #("pannuke" "kather" "digestpath") #(aptos messidor messidor_2 eyepacs) #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 
 # Common settings
-SHOTS=4
+SHOTS=16
 TRAINER=ProGrad
 CFG=rn50_ep100
 
@@ -24,12 +24,12 @@ for DATASET in "${DATASETS[@]}"; do
     echo "Parsing results for dataset: ${DATASET}" | tee -a $LOGFILE
     echo "--- Base classes ---" | tee -a $LOGFILE
 
-    python parse_test_res.py /storagepool/Ashshak/output/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} \
+    python parse_test_res.py /storagepool/Ashshak/output3/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} \
         | tee -a $LOGFILE
 
     echo "--- Novel classes ---" | tee -a $LOGFILE
 
-    python parse_test_res.py /storagepool/Ashshak/output/base2new/test_new/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} --test-log \
+    python parse_test_res.py /storagepool/Ashshak/output3/base2new/test_new/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} --test-log \
         | tee -a $LOGFILE
 
     echo "-----------------------------" | tee -a $LOGFILE

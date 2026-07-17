@@ -14,6 +14,12 @@ from clip.model import convert_weights
 from clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
 from .imagenet_templates import IMAGENET_TEMPLATES
 from trainers.regularizers import REGULARIZER_REGISTRY
+import math
+import os
+import csv
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 _tokenizer = _Tokenizer()
 
@@ -38,6 +44,11 @@ CUSTOM_TEMPLATES = {
     "EYEPACS": "a photo of a {}.",
     "MESSIDOR": "a photo of a {}.",
     "MESSIDOR_2": "a photo of a {}.",
+    "PanNuke": "a photo of a {}.",
+    "KatherColon": "a photo of a {}.",
+    "DigestPath": "a photo of a {}.",
+    "RSNA18": "a photo of a {}.",
+    "Covid": "a photo of a {}.",
 }
 
 def load_clip_to_cpu_zs(cfg):
@@ -285,6 +296,42 @@ class CustomCLIP(nn.Module):
         else:
             return logits
 
+def _l2norm(x, eps=1e-6):
+    return x / (x.norm(dim=-1, keepdim=True) + eps)
+
+def _angular_distance(a, b, eps=1e-6, degrees=True):
+    """
+    a, b: (..., D) already on same device
+    returns: (...) angle
+    """
+    a = _l2norm(a, eps)
+    b = _l2norm(b, eps)
+    cos = (a * b).sum(dim=-1).clamp(-1.0 + eps, 1.0 - eps)
+    ang = torch.acos(cos)
+    if degrees:
+        ang = ang * (180.0 / math.pi)
+    return ang
+
+def _write_csv(path, header, rows):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        for r in rows:
+            w.writerow(r)
+
+def _plot_curve(path, xs, ys, title, xlabel, ylabel):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    plt.figure()
+    plt.plot(xs, ys, marker="o")
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True, linestyle="--", linewidth=0.5, alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(path, dpi=200)
+    plt.close()
+
 
 @TRAINER_REGISTRY.register()
 class PromptSRC(TrainerX):
@@ -334,6 +381,14 @@ class PromptSRC(TrainerX):
         self.optim = build_optimizer(self.model, cfg.OPTIM)
         self.sched = build_lr_scheduler(self.optim, cfg.OPTIM)
         self.register_model("VLPromptLearner", self.model, self.optim, self.sched)
+        # ---- add THESE angdist flags at the end of build_model ----
+        self.plot_angdist = cfg.TRAINER.PROMPTSRC.PLOT_ANGDIST
+        self.angdist_max_batches = int(cfg.TRAINER.PROMPTSRC.ANGDIST_MAX_BATCHES)
+        self.angdist_in_degrees = bool(cfg.TRAINER.PROMPTSRC.ANGDIST_IN_DEGREES)
+        self.angdist_eps = float(cfg.TRAINER.PROMPTSRC.ANGDIST_EPS)
+        self.angdist_save_csv = bool(cfg.TRAINER.PROMPTSRC.ANGDIST_SAVE_CSV)
+        self.angdist_save_png = bool(cfg.TRAINER.PROMPTSRC.ANGDIST_SAVE_PNG)
+        self.angdist_subdir = str(cfg.TRAINER.PROMPTSRC.ANGDIST_SUBDIR)
         # Cosine scheduler
         self.total_epochs = cfg.OPTIM.MAX_EPOCH
         self.step_counter = 1
@@ -360,6 +415,11 @@ class PromptSRC(TrainerX):
             self.model = nn.DataParallel(self.model)
         # Keep model with GPA
         self.previous_model_gpa = None
+        # ---- angular distance plot flags ----
+        self.plot_angdist = cfg.TRAINER.PROMPTSRC.PLOT_ANGDIST
+        self.angdist_max_batches = cfg.TRAINER.PROMPTSRC.ANGDIST_MAX_BATCHES
+        self.angdist_in_degrees = cfg.TRAINER.PROMPTSRC.ANGDIST_IN_DEGREES
+        self.angdist_subdir = cfg.TRAINER.PROMPTSRC.ANGDIST_SUBDIR
 
     def forward_backward(self, batch):
         image, label = self.parse_batch_train(batch)
@@ -431,9 +491,11 @@ class PromptSRC(TrainerX):
             #mean var edit
             margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
             margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='per_sample')
+            explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
+            explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
             #end-----    
-            L_SCL = (L_SCL_logits + loss_scl_text + loss_scl_image )
-            loss = (loss_ce + L_SCL ) #oxford_flowers
+            L_SCL = (L_SCL_logits + loss_scl_text + loss_scl_image)
+            loss = (loss_ce + L_SCL + explicit_all_loss ) #oxford_flowers
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -522,3 +584,205 @@ class PromptSRC(TrainerX):
             print("Loading weights to {} " 'from "{}" (epoch = {})'.format(name, model_path, epoch))
             # set strict=False
             self._models[name].load_state_dict(state_dict, strict=False)
+
+    def test(self, split=None):
+        results = super().test(split)
+        if getattr(self, "plot_angdist", False):
+            print("[ANGDIST] Writing CSV/PNG angular-distance figures...")
+            self.dump_angdist_figures()
+        return results        
+
+    def _get_model(self):
+        # handle DataParallel
+        m = self.model
+        if hasattr(m, "module"):
+           return m.module
+        return m
+
+    @torch.no_grad()
+    def _compute_text_angdist(self):
+        """
+        Computes angular distance between consecutive text-transformer blocks,
+        averaged across class prompts.
+        """
+        model = self._get_model()  # CustomCLIP
+        text_enc = model.text_encoder  # TextEncoder
+        prompts = model.prompt_learner()                 # (n_cls, n_tkn, dim) :contentReference[oaicite:4]{index=4}
+        tokenized = model.tokenized_prompts              # (n_cls, n_tkn) :contentReference[oaicite:5]{index=5}
+
+        transformer = text_enc.transformer
+        ln_final = text_enc.ln_final
+        text_proj = text_enc.text_projection
+        pos_embed = text_enc.positional_embedding
+        dtype = model.dtype
+
+        # Find blocks
+        if hasattr(transformer, "resblocks"):
+            blocks = list(transformer.resblocks)
+            run_transformer = transformer
+        else:
+            # fallback: treat transformer itself as iterable of blocks
+            blocks = list(transformer)
+
+        # capture each block output using hooks (safe even if transformer has special prompt logic)
+        outs = [None] * len(blocks)
+        handles = []
+
+        for i, blk in enumerate(blocks):
+            def _make_hook(ii):
+                def _hook(_m, _inp, _out):
+                    outs[ii] = _out.detach()
+                return _hook
+            handles.append(blk.register_forward_hook(_make_hook(i)))
+
+        # Run one forward through transformer
+        x = prompts + pos_embed.type(dtype)
+        x = x.permute(1, 0, 2)  # (L, Ncls, C)
+        _ = run_transformer(x)  # hooks fill outs
+
+        for h in handles:
+            h.remove()
+
+        # Convert each layer output -> CLIP text embedding at that layer
+        eot = tokenized.argmax(dim=-1)  # (n_cls,)
+        layer_feats = []
+        for out in outs:
+            if out is None:
+                continue
+            y = out.permute(1, 0, 2)        # (n_cls, L, C)
+            y = ln_final(y).type(dtype)
+            feat = y[torch.arange(y.shape[0]), eot] @ text_proj
+            feat = _l2norm(feat.float(), self.angdist_eps)
+            layer_feats.append(feat)
+
+        # consecutive angular distances
+        ys = []
+        for i in range(len(layer_feats) - 1):
+            ang = _angular_distance(layer_feats[i], layer_feats[i+1],
+                                    eps=self.angdist_eps,
+                                    degrees=self.angdist_in_degrees)
+            ys.append(float(ang.mean().item()))
+        return ys
+
+    @torch.no_grad()
+    def _compute_vision_angdist(self):
+        """
+        Computes angular distance between consecutive vision-transformer blocks,
+        averaged over images from current test loader.
+        """
+        model = self._get_model()
+        vis = model.image_encoder  # clip_model.visual :contentReference[oaicite:6]{index=6}
+        dtype = model.dtype
+
+        if not hasattr(vis, "transformer") or not hasattr(vis.transformer, "resblocks"):
+            print("[ANGDIST] Vision encoder is not ViT-style; skipping vision angdist.")
+            return None
+
+        blocks = list(vis.transformer.resblocks)
+        outs = [None] * len(blocks)
+        handles = []
+
+        for i, blk in enumerate(blocks):
+            def _make_hook(ii):
+                def _hook(_m, _inp, _out):
+                    outs[ii] = _out.detach()
+                return _hook
+            handles.append(blk.register_forward_hook(_make_hook(i)))
+
+        # accumulate angle sums over dataset
+        sum_angles = [0.0] * (len(blocks) - 1)
+        count = 0
+
+        max_batches = self.angdist_max_batches
+        for bidx, batch in enumerate(self.test_loader):
+            if bidx >= max_batches:
+                break
+            img = batch["img"].to(self.device)  # standard Dassl batch dict
+            # Run normal forward once; hooks grab every block output
+            _ = vis(img.type(dtype))
+
+            # use class-token from each block output, then ln_post (+ proj if exists)
+            layer_feats = []
+            for out in outs:
+                if out is None:
+                    continue
+                # CLIP ViT blocks typically output (L, B, C) where token 0 is CLS
+                if out.dim() == 3:
+                    cls = out[0]  # (B, C)
+                else:
+                    continue
+
+                if hasattr(vis, "ln_post") and vis.ln_post is not None:
+                    cls = vis.ln_post(cls)
+                if hasattr(vis, "proj") and vis.proj is not None:
+                    cls = cls @ vis.proj
+                cls = _l2norm(cls.float(), self.angdist_eps)
+                layer_feats.append(cls)
+
+            # accumulate consecutive distances for this batch
+            for i in range(len(layer_feats) - 1):
+                ang = _angular_distance(layer_feats[i], layer_feats[i+1],
+                                        eps=self.angdist_eps,
+                                        degrees=self.angdist_in_degrees)
+                sum_angles[i] += float(ang.sum().item())
+
+            count += layer_feats[0].shape[0]
+
+        for h in handles:
+            h.remove()
+
+        if count == 0:
+            return None
+
+        ys = [s / count for s in sum_angles]
+        return ys
+
+    def dump_angdist_figures(self):
+        cfg = self.cfg
+        split_tag = getattr(cfg.DATASET, "SUBSAMPLE_CLASSES", "all")
+
+        out_dir = osp.join(cfg.OUTPUT_DIR, "angdist", split_tag)
+        os.makedirs(out_dir, exist_ok=True)
+
+        # TEXT
+        text_ys = self._compute_text_angdist()
+        text_xs = list(range(1, len(text_ys) + 1))  # x=i means between layer i and i+1
+
+        if self.angdist_save_csv:
+            rows = [[split_tag, i, i+1, 1, float(y)] for i, y in enumerate(text_ys, start=1)]
+            _write_csv(
+                osp.join(out_dir, "angdist_text.csv"),
+                header=["split", "src_layer", "tgt_layer", "layers_passed", "avg_angdist"],
+                rows=rows
+            )
+
+        if self.angdist_save_png:
+            _plot_curve(
+                osp.join(out_dir, "angdist_text.png"),
+                text_xs, text_ys,
+                title=f"Text encoder angular distance (split={split_tag})",
+                xlabel="Layer index i  (distance between i and i+1)",
+                ylabel=f"Avg angular distance ({'deg' if self.angdist_in_degrees else 'rad'})"
+            )
+
+        # VISION
+        vis_ys = self._compute_vision_angdist()
+        if vis_ys is not None:
+            vis_xs = list(range(1, len(vis_ys) + 1))
+
+            if self.angdist_save_csv:
+                rows = [[split_tag, i, i+1, 1, float(y)] for i, y in enumerate(vis_ys, start=1)]
+                _write_csv(
+                    osp.join(out_dir, "angdist_vision.csv"),
+                    header=["split", "src_layer", "tgt_layer", "layers_passed", "avg_angdist"],
+                    rows=rows
+                )
+
+            if self.angdist_save_png:
+                _plot_curve(
+                    osp.join(out_dir, "angdist_vision.png"),
+                    vis_xs, vis_ys,
+                    title=f"Vision encoder angular distance (split={split_tag})",
+                    xlabel="Layer index i  (distance between i and i+1)",
+                    ylabel=f"Avg angular distance ({'deg' if self.angdist_in_degrees else 'rad'})"
+                )  
