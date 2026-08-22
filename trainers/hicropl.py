@@ -652,7 +652,7 @@ class HiCroPL(TrainerX):
             #print("loss", loss, "logits shape", logits.shape)
             explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
             explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
-            #loss= loss + explicit_all_loss
+            loss= loss + explicit_all_loss
             optim.zero_grad()
             loss.backward()
             optim.step()

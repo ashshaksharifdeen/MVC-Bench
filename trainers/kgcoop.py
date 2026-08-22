@@ -437,40 +437,6 @@ class KgCoOp(TrainerX):
             output,loss_m = self.model(image,label)
             logits=output
             mp_txt = self.model.textfeatures
-
-            with torch.no_grad():
-                zs_log = self.zeroshot.model_inference(image)  # [B, C]
-                zs_img = self.zeroshot.clip_model.encode_image(image)
-                #zs_img = zs_img / zs_img.norm(dim=-1, keepdim=True)  # [B, D]
-                zs_txt = self.zeroshot.text_features
-
-            reg_fn = REGULARIZER_REGISTRY.get('margin_mean_var')
-            margin_reg = reg_fn(output, label, alpha=0.1, beta=0.01)    
-            mm_fn = REGULARIZER_REGISTRY.get("text_moment_matching")
-            loss_mm_txt = mm_fn(self.model.textfeatures, zs_txt)
-
-            #MDCA
-            output = self.model.output 
-            batch, classes = output.shape
-            mdca_loss_ = torch.tensor(0.0).cuda()
-            for c in range(classes):
-                avg_count = (label == c).float().mean()
-                avg_conf = torch.mean(output[:,c])
-                mdca_loss_ += torch.abs(avg_conf - avg_count)
-            denom = classes
-            mdca_loss_ /= denom 
-
-            #MBLS
-            mbls_fn = REGULARIZER_REGISTRY.get('margin_l1')
-            lossmargin   = mbls_fn(logits, label, margin=0, alpha=0.1)
-
-            #end-----
-            #eccv_penalty
-            eccv_penalty = REGULARIZER_REGISTRY.get("eccv_penalty")
-            eccv_penalty_loss = eccv_penalty(zs_pred=zs_log, output=logits)
-            #eccv_zeroshot
-            eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
-            eccv_zs_loss = eccv_zs(zs_pred=zs_log, output=logits,label=label)
             #kl-prgrad loss
             prograd_loss = REGULARIZER_REGISTRY.get("progradloss")
             kl_progrdloss = prograd_loss(stu_logits=logits,tea_logits=zs_log,label=label)
@@ -479,11 +445,9 @@ class KgCoOp(TrainerX):
             explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
 
             #proda-steps loss--------
-            loss =  F.cross_entropy(output, label) #eccv_zs_loss
-            loss += 0.1 * loss_m #+ margin_reg + 5.0*loss_mm_txt
+            loss =  F.cross_entropy(output, label) 
+            loss += 0.1 * loss_m + explicit_all_loss
             #-------------
-            #F.cross_entropy(output, label)
-            #loss = eccv_zs_loss + kl_progrdloss  #margin_reg+ 5.0*loss_mm_txt
             self.model_backward_and_update(loss)
 
         loss_summary = {

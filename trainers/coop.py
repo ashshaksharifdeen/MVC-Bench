@@ -405,111 +405,13 @@ class CoOp(TrainerX):
             logits = self.model.logits_val  #model.sematic_val  # shape (B, C)
             labels = label               # shape (B,)
             # fetch our helper from the registry
-            """margin_var_fn = REGULARIZER_REGISTRY.get('inter_class_margin_variance')
-            #margin_var   = margin_var_fn(logits, labels)
-            # fetch and apply our new regularizer
-            reg_fn = REGULARIZER_REGISTRY.get('margin_mean_var')
-            # pick alpha, beta from your config or hard‐code for now
-
-            alpha = self.cfg.TRAINER.MAPLE.MARGIN_ALPHA
-            beta  = self.cfg.TRAINER.MAPLE.MARGIN_BETA
-            margin_reg = reg_fn(logits, label, alpha=0.1, beta=0.01)  #model.sematic_val/logits
-
-            #westerian-------------------
-            w2_fn = REGULARIZER_REGISTRY.get("gaussian_w2")
-            w2_reg = w2_fn(logits, labels)    
-
-
-            #end-------------------
-
-            #nce-----
-            nce_fn = REGULARIZER_REGISTRY.get("text_nce_align")
-
-
-            loss_nce_txt = nce_fn(
-                    text_features        = self.model.textfeatures,      # (C, D)
-                    frozen_text_features = zs_txt,                  # (C, D)
-                    labels               = label,                   # (B,)
-                    logit_scale          = self.model.logit_scale        # scalar Tensor
-            )
-
-            # fetch the L1‐based NCE reg
-            nce_l1_fn = REGULARIZER_REGISTRY.get("text_nce_align_l1")
-
-            # compute it
-            loss_nce_l1 = nce_l1_fn(
-                        text_features        = self.model.textfeatures,    # (C, D)
-                        frozen_text_features = zs_txt,                # (C, D)
-                        labels               = label,                 # (B,)
-                        logit_scale          = self.model.logit_scale      # scalar tensor
-            )
-
-            # --- fetch the new reg ---
-            pairwise_nce_fn = REGULARIZER_REGISTRY.get("pairwise_nce")
-            loss_pair_txt = pairwise_nce_fn(
-            tuned       = self.model.textfeatures,
-            frozen      = zs_txt,
-            logit_scale = self.model.logit_scale,
-            )
-
-            cov_fn = REGULARIZER_REGISTRY.get("text_covariance_match")
-            loss_cov_txt = cov_fn(self.model.textfeatures, zs_txt)
-
-            # fetch the regularizer
-            mm_fn = REGULARIZER_REGISTRY.get("text_moment_matching")
-
-            # compute it
-            loss_mm_txt = mm_fn(self.model.textfeatures, zs_txt)
-
-            reg_fn_band = REGULARIZER_REGISTRY.get("margin_band")
-            delta = 1.0
-            eps   = 0.2
-            beta  = 0.01
-
-            margin_reg_band = reg_fn_band(
-                self.model.logits_val, 
-                label,
-                delta=delta,
-                eps=eps,
-                beta=beta
-                )
-            
-            rafa_plus_repulsion = REGULARIZER_REGISTRY.get("rafa_plus_class_repulsion")
-            rafa_los_re=rafa_plus_repulsion(
-            z_img      = mp_img,
-            text_feats      = mp_txt,
-            labels     = labels,)
-
-            #ECCV 
-            eccv_penalty = REGULARIZER_REGISTRY.get("eccv_penalty")
-            eccv_penalty_loss = eccv_penalty(zs_pred=zs_log, output=logits)
-            #eccv_zeroshot
-            eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
-            eccv_zs_loss = eccv_zs(zs_pred=zs_log, output=logits,label=label)
-
-            #MDCA
-            mdca = REGULARIZER_REGISTRY.get("MDCA")
-            mdca_loss  = mdca(output=logits,label=label)
-            #MBLS
-            mbls = REGULARIZER_REGISTRY.get("MBLS")
-            mbls_loss  = mbls(logits=logits,targets=label)
-            #DCA
-            dca = REGULARIZER_REGISTRY.get("DCA")
-            dca_loss  = dca(logits=logits,label=label)
-            #label smooth
-            label_smooth = REGULARIZER_REGISTRY.get("label_smooth")
-            label_smooth_loss  = label_smooth(output=logits,label=label)
-
-            #mean var edit
-            margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
-            margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='per_sample')
             #MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT
             explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
             explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
-            #end-----    """
+            #end-----    
 
             loss = F.cross_entropy(output, label)
-            #loss+=explicit_all_loss  #label_smooth_loss  #marg  00 in_reg + loss_mm_txt       #eccv_penalty_loss                          #(margin_reg +(5.0* loss_mm_txt))
+            loss+=explicit_all_loss  
             self.model_backward_and_update(loss) #eccv_zs_loss
 
         loss_summary = {

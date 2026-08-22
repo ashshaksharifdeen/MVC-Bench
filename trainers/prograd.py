@@ -416,36 +416,6 @@ class ProGrad(TrainerX):
             mp_img = self.model.imfeatures      # [B, D]
             mp_txt = self.model.textfeatures  
             dtype, device = output.dtype, output.device
-            """with torch.no_grad():
-                zs_log = self.zeroshot.model_inference(image)  # [B, C]
-                zs_img = self.zeroshot.clip_model.encode_image(image)
-                #zs_img = zs_img / zs_img.norm(dim=-1, keepdim=True)  # [B, D]
-                zs_txt = self.zeroshot.text_features"""               # [C, D]
-
-            reg_fn = REGULARIZER_REGISTRY.get('margin_mean_var')
-            margin_reg = reg_fn(output, label, alpha=0.1, beta=0.01)
-            margin_reg = margin_reg.to(dtype).to(device)
-
-            # fetch the regularizer
-            mm_fn = REGULARIZER_REGISTRY.get("text_moment_matching")
-
-            # compute it
-            loss_mm_txt = mm_fn(self.model.textfeatures, self.zs_clip.text_features.to(device=self.model.textfeatures.device))
-            loss_mm_txt = loss_mm_txt.to(dtype).to(device)
-            with torch.no_grad():
-                zs_clip_output = self.zs_clip(image)
-
-            xe_loss, kl_loss = self.criterion(output,
-                                              zs_clip_output.detach(),
-                                              label)
-                        #eccv_penalty
-            eccv_penalty = REGULARIZER_REGISTRY.get("eccv_penalty")
-            eccv_penalty_loss = eccv_penalty(zs_pred=zs_clip_output.to(device=output.device), output=output)
-            eccv_penalty_loss = eccv_penalty_loss.to(dtype).to(device)
-            #eccv_zeroshot
-            eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
-            eccv_zs_loss = eccv_zs(zs_pred=zs_clip_output.to(device=output.device), output=output,label=label)
-            eccv_zs_loss = eccv_zs_loss.to(dtype).to(device)
             explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
             explicit_all_loss =explicit_all(output,label,variance_mode="all_pairs")
 
@@ -456,8 +426,8 @@ class ProGrad(TrainerX):
             print(f"kl_loss  dtype={kl_loss.dtype}")
             print(f"margin   dtype={margin_reg.dtype}")
             print(f"mm_txt   dtype={loss_mm_txt.dtype}")
-            loss = (xe_loss+  kl_loss + margin_reg + 5 * loss_mm_txt)
-            #loss = (xe_loss.float() + kl_loss.float() + margin_reg.float() + 5.0 * loss_mm_txt.float())
+            loss = (xe_loss+  kl_loss + explicit_all_loss)
+            #loss = (xe_loss.float() + kl_loss.float() + explicit_all_loss.float())
             #self.prograd_backward_and_update(xe_loss, kl_loss, self.cfg.LOSS.LAMBDA)
             #loss = loss.to(self.model.text_encoder.dtype)
             self.model_backward_and_update(loss)

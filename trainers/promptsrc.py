@@ -452,45 +452,6 @@ class PromptSRC(TrainerX):
                 reduction='sum',
                 log_target=True
             ) * (1 * 1) / logits.numel()
-
-            with torch.no_grad():
-                zs_log = self.zeroshot.model_inference(image)  # [B, C]
-                zs_img = self.zeroshot.clip_model.encode_image(image)
-                #zs_img = zs_img / zs_img.norm(dim=-1, keepdim=True)  # [B, D]
-                zs_txt = self.zeroshot.text_features 
-
-            reg_fn = REGULARIZER_REGISTRY.get('margin_mean_var')
-            margin_reg = reg_fn(logits, label, alpha=0.1, beta=0.01)
-
-                        # fetch the regularizer
-            mm_fn = REGULARIZER_REGISTRY.get("text_moment_matching")
-
-            # compute it
-            loss_mm_txt = mm_fn(normalized_text_features, zs_txt)
-
-            
-            #eccv_penalty
-            eccv_penalty = REGULARIZER_REGISTRY.get("eccv_penalty")
-            eccv_penalty_loss = eccv_penalty(zs_pred=zs_log, output=logits)
-            #eccv_zeroshot
-            eccv_zs = REGULARIZER_REGISTRY.get("eccv_zs")
-            eccv_zs_loss = eccv_zs(zs_pred=zs_log, output=logits,label=label)
-            #MDCA
-            mdca = REGULARIZER_REGISTRY.get("MDCA")
-            mdca_loss  = mdca(output=logits,label=label)
-            #MBLS
-            mbls = REGULARIZER_REGISTRY.get("MBLS")
-            mbls_loss  = mbls(logits=logits,targets=label)
-            #DCA
-            dca = REGULARIZER_REGISTRY.get("DCA")
-            dca_loss  = dca(logits=logits,label=label)
-            #label smooth
-            label_smooth = REGULARIZER_REGISTRY.get("label_smooth")
-            label_smooth_loss  = label_smooth(output=logits,label=label)
-
-            #mean var edit
-            margin_var_all = REGULARIZER_REGISTRY.get("margin_mean_var_all")
-            margin_var_all_loss  = margin_var_all(logits=logits,label=label,variance_mode='per_sample')
             explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
             explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
             #end-----    
