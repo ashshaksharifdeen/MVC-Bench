@@ -3,7 +3,7 @@ GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets to process
-DATASETS=(rsna18 covid) #(rsna18 covid) #("pannuke" "kather" "digestpath") #(aptos eyepacs messidor messidor_2)   #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
+DATASETS=(aptos eyepacs messidor messidor_2) #(rsna18 covid) #("pannuke" "kather" "digestpath") #(aptos eyepacs messidor messidor_2)   #(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)
 
 # Common settings
 SHOTS=16
@@ -25,11 +25,6 @@ for DATASET in "${DATASETS[@]}"; do
     echo "--- Base classes ---" | tee -a $LOGFILE
 
     python parse_test_res.py /storagepool/Ashshak/output/base2new/train_all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} \
-        | tee -a $LOGFILE
-
-    echo "--- Novel classes ---" | tee -a $LOGFILE
-
-    python parse_test_res.py /storagepool/Ashshak/output/base2new/test_all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} --test-log \
         | tee -a $LOGFILE
 
     echo "-----------------------------" | tee -a $LOGFILE

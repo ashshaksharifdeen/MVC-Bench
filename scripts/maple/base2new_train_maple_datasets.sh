@@ -2,7 +2,7 @@
 GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base data path and trainer
-DATA="/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"   #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"   #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA"#"/storagepool/Ashshak/DR" #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset" #"/storagepool/Ashshak/DR"
+DATA="/storagepool/Ashshak/DR"  #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset"   #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA"#"/storagepool/Ashshak/DR" #"/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset" #"/storagepool/Ashshak/DR"
 TRAINER=MaPLe
 CFG=vit_b16_c2_ep5_batch4_2ctx
 SHOTS=16
@@ -11,7 +11,7 @@ SHOTS=16
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
 #aptos eyepacs messidor messidor_2
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)   #("pannuke" "kather" "digestpath")   #(caltech101 food101 dtd eurosat) #("pannuke" "kather" "digestpath") #(rsna18 covid)
+DATASETS=(aptos eyepacs messidor messidor_2)   #("pannuke" "kather" "digestpath") ß #(rsna18 covid)
 
 # List of seeds to loop over
 SEEDS=(1 2 3)
@@ -36,7 +36,7 @@ for DATASET in "${DATASETS[@]}"; do
             --config-file configs/trainers/${TRAINER}/${CFG}.yaml \
             --output-dir ${DIR} \
             DATASET.NUM_SHOTS ${SHOTS} \
-            DATASET.SUBSAMPLE_CLASSES base \
+            DATASET.SUBSAMPLE_CLASSES all \
             TRAINER.MAPLE.PLOT_ANGDIST True
     done
 done

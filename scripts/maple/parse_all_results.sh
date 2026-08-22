@@ -27,11 +27,5 @@ for DATASET in "${DATASETS[@]}"; do
     python parse_test_res.py /storagepool/Ashshak/output/base2new/train_all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} \
         | tee -a $LOGFILE
 
-    echo "--- Novel classes ---" | tee -a $LOGFILE
-
-    python parse_test_res.py /storagepool/Ashshak/output/base2new/test_all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} --test-log \
-        | tee -a $LOGFILE
-
-    echo "-----------------------------" | tee -a $LOGFILE
     echo "" >> $LOGFILE
 done

@@ -2,7 +2,7 @@
 GPU_ID="${1:-1}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base data path and trainer
-DATA="/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA"   #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA"    #"/storagepool/Ashshak/DR"
+DATA="/storagepool/Ashshak/DR"   #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA"    #"/storagepool/Ashshak/DR"
 TRAINER=MaPLe
 CFG=vit_b16_c2_ep5_batch4_2ctx_cross_datasets
 SHOTS=16
@@ -10,7 +10,7 @@ SHOTS=16
 # List of datasets to loop over
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
-DATASETS=(rsna18)   #(messidor)
+DATASETS=(rsna18)   #(messidor) ("pannuke")
 
 # List of seeds to loop over
 SEEDS=(1 2 3)

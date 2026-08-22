@@ -10,7 +10,7 @@ LOADEP=20
 SUB=all
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets and seeds
-DATASETS=(covid) #(aptos eyepacs messidor_2)
+DATASETS=(covid) #(aptos eyepacs messidor_2) ("kather" "digestpath")
 SEEDS=(1 2 3)
 
 # Loop through datasets and seeds

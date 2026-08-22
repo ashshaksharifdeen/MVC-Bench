@@ -3,7 +3,7 @@ GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets to process
-DATASETS=(caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat)  #("pannuke" "kather" "digestpath") #(rsna18 covid)   #("pannuke" "kather" "digestpath")  #(caltech101 food101 dtd eurosat)   #(aptos eyepacs messidor messidor_2)
+DATASETS=(aptos messidor messidor_2 eyepacs)  #("pannuke" "kather" "digestpath") #(rsna18 covid)   #("pannuke" "kather" "digestpath")  #(caltech101 food101 dtd eurosat)   #(aptos eyepacs messidor messidor_2)
 
 # Common settings
 SHOTS=16
