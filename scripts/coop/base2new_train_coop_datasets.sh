@@ -13,7 +13,7 @@ CSC=False
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
 #aptos eyepacs messidor messidor_2
-DATASETS=(aptos eyepacs messidor messidor_2)
+DATASETS=(aptos eyepacs messidor messidor_2) #(rsna18,covid) ("pannuke" "kather" "digestpath")
 # List of seeds to loop over
 SEEDS=(1 2 3)
 CAL_BINS=20
@@ -23,7 +23,7 @@ SAVE_CLASSWISE=True
 for DATASET in "${DATASETS[@]}"; do
     # Loop through each seed
     for SEED in "${SEEDS[@]}"; do
-        DIR=/storagepool/Ashshak/output4/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
+        DIR=/storagepool/Ashshak/output4/base2new/train_all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
         
         if [ -d "$DIR" ]; then
             echo "Results are available in ${DIR}. Resuming..."
@@ -42,7 +42,7 @@ for DATASET in "${DATASETS[@]}"; do
             TRAINER.COOP.CSC ${CSC} \
             DATASET.NUM_SHOTS ${SHOTS} \
             TRAINER.COOP.CLASS_TOKEN_POSITION ${CTP} \
-            DATASET.SUBSAMPLE_CLASSES base \
+            DATASET.SUBSAMPLE_CLASSES all \
             TEST.CALIBRATION_BINS ${CAL_BINS} \
             TEST.SAVE_CLASSWISE_CALIBRATION ${SAVE_CLASSWISE}
     done

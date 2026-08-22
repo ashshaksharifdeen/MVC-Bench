@@ -10,7 +10,7 @@ SHOTS=4
 # List of datasets to loop over
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft
-DATASETS=(rsna18)  #(messidor)
+DATASETS=(rsna18)  #(messidor) ("pannuke")
 
 # List of seeds to loop over
 SEEDS=(1 2 3)
