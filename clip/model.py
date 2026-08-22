@@ -378,255 +378,100 @@ class ImageBatchAggregator(nn.Module):
         return x    
     
 class ResidualAttentionBlock_HiCroPLReason(nn.Module):
-    def __init__(self, d_model: int, n_head: int, layers: int, attn_mask: torch.Tensor = None, add_prompt=False,
-                 text_layer=False, i=0, design_details=None):
+    def __init__(
+        self,
+        d_model: int,
+        n_head: int,
+        layers: int,
+        attn_mask: torch.Tensor = None,
+        add_prompt=False,
+        text_layer=False,
+        i=0,
+        design_details=None,
+    ):
         super().__init__()
-        #cfg = self.cfg
+
         self.attn = nn.MultiheadAttention(d_model, n_head)
+
         self.ln_1 = LayerNorm(d_model)
-        self.mlp = nn.Sequential(OrderedDict([
-            ("c_fc", nn.Linear(d_model, d_model * 4)),
-            ("gelu", QuickGELU()),
-            ("c_proj", nn.Linear(d_model * 4, d_model))
-        ]))
+
+        self.mlp = nn.Sequential(
+            OrderedDict(
+                [
+                    ("c_fc", nn.Linear(d_model, d_model * 4)),
+                    ("gelu", QuickGELU()),
+                    ("c_proj", nn.Linear(d_model * 4, d_model)),
+                ]
+            )
+        )
+
         self.ln_2 = LayerNorm(d_model)
-        # Only add learnable tokens if flag is set True
-        # For the first iteration i, we should not add the learnable parameters
-        # as it is already been taken care of in the very start, for both text
-        # and the visual branch
+
         self.text_layer = text_layer
         self.attn_mask = attn_mask
-        self.cross_prompt_nctx = design_details['vision_ctx']
-        #clip_model = load_clip_to_cpu(cfg)
-        ctx_dim = 512 #clip_model.ln_final.weight.shape[0]
-        vis_dim = 768 #clip_model.visual.output_dim
-        self.image_batch_aggregator = ImageBatchAggregator(dim=512)
-        self.i = i
-        if self.i != 0:
-            self.add_prompt = add_prompt
-        else:
-            self.add_prompt = False
-        # ---- initialisation cross-attention blocks (same-modality) ----
-        self.selfatt_text= FrozenTextLayerContextEncoder(width=ctx_dim, heads=8, layers=layers,attn_mask=attn_mask, text_layer=True, design_details=design_details)         #SelfAttention(d_model=ctx_dim, n_head=8)
-        self.text_init_attn = CrossPromptAttention(
-            hidden_size=ctx_dim,
-            encoder_hidden_size=ctx_dim,
-            num_attention_heads=8,
-        )
-        self.text_pooling = CrossPromptAttention(
-            hidden_size=ctx_dim,
-            encoder_hidden_size=vis_dim,
-            num_attention_heads=8,
-        )
-        text_proxy_token = torch.randn(2, ctx_dim)
-        self.text_proxy_token = nn.ParameterList([nn.Parameter(text_proxy_token) for _ in range(9)])
-        self.text_proxy_pooling = CrossPromptAttention(
-            hidden_size=ctx_dim,
-            encoder_hidden_size=ctx_dim,
-            num_attention_heads=8,
-        )
-        self.selfatt_vision= FrozenVisionLayerContextEncoder(width=vis_dim, heads=8, layers=layers,attn_mask=attn_mask, text_layer=False, design_details=design_details)         #SelfAttention(d_model=vis_dim, n_head=8)
-        self.visual_init_attn = CrossPromptAttention(
-            hidden_size=vis_dim,
-            encoder_hidden_size=vis_dim,
-            num_attention_heads=8,
-        )
-        self.visual_pooling = CrossPromptAttention(
-            hidden_size=vis_dim,
-            encoder_hidden_size=ctx_dim,
-            num_attention_heads=8,
-        )
-        #context_aware_visual_vector = torch.empty(self.cross_prompt_nctx, vis_dim)
-        #nn.init.normal_(context_aware_visual_vector, std=0.02)
-        #visual_context_para =  nn.ParameterList([nn.Parameter(context_aware_visual_vector.clone())for _ in range(9)])
-        #self.visual_contexts_para = visual_context_para
+        self.cross_prompt_nctx = design_details["vision_ctx"]
 
-        #context_aware_text_vector = torch.empty(self.cross_prompt_nctx, ctx_dim)
-        #nn.init.normal_(context_aware_text_vector, std=0.02)
-        #text_context_para =  nn.ParameterList([nn.Parameter(context_aware_text_vector.clone())for _ in range(9)])
-        #self.text_contexts_para = text_context_para
-        #self.frozen_contexts_visual_list =None
-        #self.frozen_contexts_text_list = None
-        #self.frozen_txt_x = None
-        #self.frozen_vision_x = None
+        self.i = i
+        self.add_prompt = add_prompt if i != 0 else False
 
     def attention(self, x: torch.Tensor):
-        self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
-        return self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
-
-    def forward(self, inputs):
-        x = inputs[0]
-        cross_prompts_deeper = inputs[1]
-        frozen_x = inputs[2]
-        frozen_contexts_list = inputs[3]                 # raw frozen stream
-        init_payload = inputs[4]
-        if not isinstance(init_payload, (tuple, list)) or len(init_payload) != 2:
-            raise ValueError(
-                "Expected inputs[4] to contain both "
-                "(init_cross_prompts_text, init_cross_prompts_visual)"
+        if self.attn_mask is not None:
+            self.attn_mask = self.attn_mask.to(
+                dtype=x.dtype,
+                device=x.device,
             )
 
-        init_cross_prompts_txt, init_cross_prompts_vis = init_payload  
-        """if self.i == 0 and frozen_contexts_list is None:
+        return self.attn(
+            x,
+            x,
+            x,
+            need_weights=False,
+            attn_mask=self.attn_mask,
+        )[0]
+
+    def forward(self, inputs):
+        x, cross_prompts_deeper = inputs
+
+        if self.add_prompt:
             if not self.text_layer:
-                frozen_contexts_list = self.selfatt_vision(frozen_x)
-                #print("frozen contexts visual list generated len:", len(frozen_contexts_list))
+                # Remove the previous visual prompt tokens.
+                prefix = x[:-self.cross_prompt_nctx, :, :]
+
+                # Insert this layer's visual prompt.
+                visual_context = cross_prompts_deeper[self.i - 1]
+                visual_context = visual_context.expand(
+                    x.shape[1],
+                    -1,
+                    -1,
+                ).permute(1, 0, 2)
+
+                x = torch.cat(
+                    [prefix, visual_context],
+                    dim=0,
+                )
+
             else:
-                frozen_contexts_list = self.selfatt_text(frozen_x)"""
-                #print("frozen contexts text list generated len:", len(frozen_contexts_list))
-        # Will need to append the learnable tokens for this layer here
-        # Check if flag was set for this layer or not
-        if self.add_prompt:  # Depending on the hyper-parameter K, self.add_prompt is set to True when i < K ,
-            # Also see if this is textual transformer layer or not
-            if not self.text_layer:  # visual
-                frozen_vision_x =  init_cross_prompts_vis[self.i] #frozen_contexts_list[-1]
-                frozen_txt_x = init_cross_prompts_txt[self.i]
-                frozen_vision_x_cxt = frozen_vision_x[x.shape[0] - self.cross_prompt_nctx:, :, :]
-
-                # Remove the outputs produced by learnable tokens of previous layer
-                #print("frozen vision x shape:", frozen_vision_x.shape)
-                #print("x shape:", x.shape)
-                prefix = x[0:x.shape[0] - self.cross_prompt_nctx, :, :]
-                #print("prefix shape:", prefix.shape)
-                
-                prev_vision_x_cxt = x[x.shape[0] - self.cross_prompt_nctx:, :, :]
-                # Create/configure learnable tokens of this layer
-                #print("cross prompts deeper vision len:", len(cross_prompts_deeper))
-                visual_context = cross_prompts_deeper[self.i-1]
-                #visual_context = visual_context.expand(x.shape[1], -1, -1).permute(1, 0, 2).half()
-                visual_context = visual_context.expand(x.shape[1], -1, -1).permute(1, 0, 2)
-                #visual_context = visual_context + prev_vision_x_cxt
-                #concat_visual_context = torch.cat([frozen_vision_x_cxt, visual_context], dim=0)
-                #print("updated visual context shape:", visual_context.shape)                
-                """if self.i >=2:
-                    frozen_txt_x = init_cross_prompts_txt[self.i]
-                    frozen_txt_x_cxt = frozen_txt_x[1:1 + self.cross_prompt_nctx, :, :]   # [T, Bt, D]
-                    frozen_txt_x_cxt = frozen_txt_x_cxt.mean(dim=1)                        # [T, D]
-
-                    vision_query = self.visual_contexts_para[self.i].to(dtype=x.dtype, device=x.device)  # [T, D]
-                    vision_pool_cxt = self.visual_pooling(visual_context, frozen_txt_x_cxt, frozen_txt_x_cxt)
-                    context_aware_vision = self.visual_init_attn(vision_query, vision_pool_cxt, vision_pool_cxt)
-                    x = torch.cat([prefix, context_aware_vision], dim=0)
-                else:
-                    #visual_context = visual_context + visual_context_cross
-                    x = torch.cat([prefix, visual_context], dim=0)"""
-                    #x = torch.cat([prefix, context_aware_vision], dim=0)
-                x = torch.cat([prefix, visual_context], dim=0)    
-            else:  # text
-                # Appending the learnable tokens in different way
-                frozen_vision_x =  init_cross_prompts_vis[self.i] #init_cross_prompts_txt[self.i]    #frozen_contexts_list[self.i]
-
-                # x -> [77, NCLS, DIM]
-                # First remove the learnable tokens from previous layer  
+                # Preserve SOS and all tokens after the prompt slots.
                 prefix = x[:1, :, :]
-                #frozen_txt_x_cxt =frozen_txt_x[1:1 + self.cross_prompt_nctx, :, :]
-                prev_txt_x_cxt = x[1:1 + self.cross_prompt_nctx, :, :]                
-                suffix = x[1 + self.cross_prompt_nctx:, :, :]
-                # Create/configure learnable tokens of this layer
-                #print("cross prompts deeper text len:", len(cross_prompts_deeper))
-                textual_context = cross_prompts_deeper[self.i-1]
-                textual_proxy_content = self.text_proxy_token[self.i].expand(x.shape[1], -1, -1).permute(1, 0, 2).to(x.device).type(x.dtype)
-                #textual_context = textual_context.expand(x.shape[1], -1, -1).permute(1, 0, 2).half()
-                textual_context = textual_context.expand(x.shape[1], -1, -1).permute(1, 0, 2)
-                #textual_context = textual_context + prev_txt_x_cxt
-                #concat_textual_context = torch.cat([frozen_txt_x_cxt, textual_context], dim=0)
-                #frozen_vision_x = frozen_vision_x.mean(dim=1) 
-                #textual_context = self.text_pooling(textual_context, frozen_vision_x, frozen_vision_x)
-                # textual_context: [C, Lt, Dt] = [50, 77, 512]
-                # frozen_vision_x: [Lv, B, Dv] = [199, 32, 768]
-                # textual_context: [T, C, Dt]
-                # frozen_vision_x: [Lv, B, Dv]
+                suffix = x[1 + self.cross_prompt_nctx :, :, :]
 
-                """T, C, Dt = textual_context.shape
-                Lv, B, Dv = frozen_vision_x.shape
+                # Insert this layer's text prompt.
+                textual_context = cross_prompts_deeper[self.i - 1]
+                textual_context = textual_context.expand(
+                    x.shape[1],
+                    -1,
+                    -1,
+                ).permute(1, 0, 2)
 
-                class_chunk = 4  # try 2, 4, 5, 8 depending on GPU memory
-                updated_chunks = []
-
-                for start in range(0, C, class_chunk):
-                    end = min(start + class_chunk, C)
-                    Cc = end - start
-
-                    # [T, Cc, Dt]
-                    #text_chunk = textual_context[:, start:end, :]
-                    text_chunk = textual_proxy_content[:, start:end, :]
-                    #text_chunk = textual_context[:, :, :]
-                    #frozen_vision_chunk = frozen_vision_x[:, start:end, :]
-                    # [T, Cc, Dt] -> [T, B, Cc, Dt] -> [T, B*Cc, Dt]
-                    text_q = text_chunk.unsqueeze(1).expand(T, B, Cc, Dt)
-                    text_q = text_q.reshape(T, B * Cc, Dt)
-
-                    # [Lv, B, Dv] -> [Lv, B, Cc, Dv] -> [Lv, B*Cc, Dv]
-                    vision_kv = frozen_vision_x.unsqueeze(2).expand(Lv, B, Cc, Dv)
-                    vision_kv = vision_kv.reshape(Lv, B * Cc, Dv)
-
-                    # Cross-attention only for this class chunk
-                    text_q = self.text_pooling(text_q, vision_kv, vision_kv)
-                    # [T, B*Cc, Dt]
-
-                    # Restore: [T, B, Cc, Dt]
-                    text_q = text_q.reshape(T, B, Cc, Dt)
-
-                    # Aggregate over image batch to recover [T, Cc, Dt]
-                    text_q = text_q.mean(dim=1)
-                    # [T, Cc, Dt]
-                    #text_q = self.image_batch_aggregator(text_q)
-                    updated_chunks.append(text_q)
-
-                # Final restored textual context
-                #textual_context = torch.cat(updated_chunks, dim=1)
-                textual_proxy_content = torch.cat(updated_chunks, dim=1)
-                #textual_context = self.text_proxy_pooling(textual_context, textual_proxy_content, textual_proxy_content)
-                #print("textual context shape after cross-modal pooling:", textual_context.shape)
-                #print("textual proxy content shape after cross-modal pooling:", textual_proxy_content.shape)
-                textual_context = textual_context + textual_proxy_content"""
-                #textual_context = textual_context.mean(dim=1)
-                # [T, C, Dt]
-
-                """if self.i >=2:
-                    frozen_vision_x = init_cross_prompts_vis[self.i]
-
-                    # take the last prompt slots from the vision-side tensor itself
-                    frozen_vision_x_cxt = frozen_vision_x[-self.cross_prompt_nctx:, :, :]   # [T, Bv, D]
-
-                    # make cross-modal context global/shared over the vision batch
-                    frozen_vision_x_cxt = frozen_vision_x_cxt.mean(dim=1)                    # [T, D]
-
-                    text_query = self.text_contexts_para[self.i].to(dtype=x.dtype, device=x.device)  # [T, D]
-
-                    # returns [T, D]
-                    text_pool_cxt = self.text_pooling(textual_context, frozen_vision_x_cxt, frozen_vision_x_cxt)
-
-                    # q is [T, Bt, D], k/v are [T, D] -> CrossPromptAttention can safely broadcast k/v
-                    context_aware_text = self.text_init_attn(text_query, text_pool_cxt, text_pool_cxt)
-                    x = torch.cat([prefix, context_aware_text, suffix], dim=0)
-                else:
-                    #textual_context = textual_context + textual_context_cross
-                    x = torch.cat([prefix, textual_context, suffix], dim=0)"""
-                    #x = torch.cat([prefix, context_aware_text, suffix], dim=0)
-                x = torch.cat([prefix, textual_context, suffix], dim=0)    
-
+                x = torch.cat(
+                    [prefix, textual_context, suffix],
+                    dim=0,
+                )
 
         x = x + self.attention(self.ln_1(x))
         x = x + self.mlp(self.ln_2(x))
-        """if self.add_prompt and (self.i>=3 and self.i<=8):
-            if not self.text_layer:
-                
-                # Cross attention for visual layer
-                #print("frozen vision x shape:", frozen_vision_x.shape)
-                #print("x vision shape:", x.shape)
-                x = self.visual_init_attn(x, frozen_vision_x, frozen_vision_x)
-                x = x + self.attention(self.ln_1(x))
-                x = x + self.mlp(self.ln_2(x))
-            if self.text_layer:
-                # Cross attention for textual layer
-                #print("frozen text x shape:", frozen_txt_x.shape)
-                #print("x text shape:", x.shape)
-                x = self.text_init_attn(x, frozen_txt_x, frozen_txt_x)
-                x = x + self.attention(self.ln_1(x))
-                x = x + self.mlp(self.ln_2(x))"""
-        init_payload = (init_cross_prompts_txt, init_cross_prompts_vis)
-        return [x, cross_prompts_deeper, frozen_x, frozen_contexts_list,init_payload]
+
+        return [x, cross_prompts_deeper]
 
 
 class SelfAttention(nn.Module):
@@ -1910,60 +1755,75 @@ class VisionTransformer_HiCroPLReason(nn.Module):
         return_layer_states=False
     ):"""
     def forward(
-    self,
-    x: torch.Tensor,
-    img_prompts,
-    cross_prompts_visual_deeper,
-    init_cross_prompts_visual,
-    init_cross_prompts_text,
-    return_layer_states=False,
+        self,
+        x: torch.Tensor,
+        img_prompts,
+        cross_prompts_visual_deeper,
     ):
         x = self.conv1(x)
-        x = x.reshape(x.shape[0], x.shape[1], -1)
+
+        x = x.reshape(
+            x.shape[0],
+            x.shape[1],
+            -1,
+        )
+
         x = x.permute(0, 2, 1)
+
+        class_token = (
+            self.class_embedding.to(x.dtype)
+            + torch.zeros(
+                x.shape[0],
+                1,
+                x.shape[-1],
+                dtype=x.dtype,
+                device=x.device,
+            )
+        )
+
         x = torch.cat(
-            [
-                self.class_embedding.to(x.dtype)
-                + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
-                x,
-            ],
+            [class_token, x],
             dim=1,
         )
+
         x = x + self.positional_embedding.to(x.dtype)
 
-        with torch.no_grad():
-            frozen_x = self.ln_pre(x)
-            frozen_x = frozen_x.permute(1, 0, 2).detach()  # [197, B, 768]
-
         if self.VPT_shallow:
-            visual_ctx = img_prompts.to(dtype=x.dtype, device=x.device).expand(x.shape[0], -1, -1)
-            x = torch.cat([x, visual_ctx], dim=1)
+            visual_ctx = img_prompts.to(
+                dtype=x.dtype,
+                device=x.device,
+            ).expand(
+                x.shape[0],
+                -1,
+                -1,
+            )
+
+            x = torch.cat(
+                [x, visual_ctx],
+                dim=1,
+            )
+
         else:
             assert self.prompt_till_layer_visual == 0
 
         x = self.ln_pre(x)
         x = x.permute(1, 0, 2)
 
-        init_payload = (init_cross_prompts_text, init_cross_prompts_visual)
-        payload = [x, cross_prompts_visual_deeper, frozen_x, None, init_payload]
+        payload = [
+            x,
+            cross_prompts_visual_deeper,
+        ]
 
-        layer_inputs = []
-        layer_outputs = []
+        for block in self.transformer.resblocks:
+            payload = block(payload)
 
-        for blk in self.transformer.resblocks:
-            layer_inputs.append(payload[0])   # pre-block tokens
-            payload = blk(payload)
-            layer_outputs.append(payload[0])  # post-block tokens
-        
         x = payload[0]
         x = x.permute(1, 0, 2)
+
         x = self.ln_post(x[:, 0, :])
 
         if self.proj is not None:
             x = x @ self.proj
-
-        if return_layer_states:
-            return x, layer_inputs, layer_outputs, frozen_x
 
         return x
     

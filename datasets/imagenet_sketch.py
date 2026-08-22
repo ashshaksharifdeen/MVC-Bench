@@ -13,7 +13,7 @@ class ImageNetSketch(DatasetBase):
     This dataset is used for testing only.
     """
 
-    dataset_dir = "/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset/imagenet-sketch"
+    dataset_dir = "imagenet-sketch"
 
     def __init__(self, cfg):
         root = os.path.abspath(os.path.expanduser(cfg.DATASET.ROOT))

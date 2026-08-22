@@ -352,7 +352,7 @@ class CoCoOp(TrainerX):
 
             #cross model zs alignment-----------
             # grab MaPLe features
-            mp_img = model.imfeatures      # [B, D]
+            """mp_img = model.imfeatures      # [B, D]
             mp_txt = model.textfeatures    # [C, D]
             mp_log = model.logits_val      # [B, C]
 
@@ -450,7 +450,7 @@ class CoCoOp(TrainerX):
 
 
             #end-----
-            #loss+= margin_reg + 5.0* loss_mm_txt
+            #loss+= margin_reg + 5.0* loss_mm_txt"""
 
             optim.zero_grad()
             loss.backward()

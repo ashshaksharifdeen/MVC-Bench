@@ -24,12 +24,12 @@ for DATASET in "${DATASETS[@]}"; do
     echo "Parsing results for dataset: ${DATASET}" | tee -a $LOGFILE
     echo "--- Base classes ---" | tee -a $LOGFILE
 
-    python parse_test_res.py /storagepool/Ashshak/output4/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} \
+    python parse_test_res.py /l/users/ashshak.sharifdeen/output2/base2new/train_base/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} \
         | tee -a $LOGFILE
 
     echo "--- Novel classes ---" | tee -a $LOGFILE
 
-    python parse_test_res.py /storagepool/Ashshak/output4/base2new/test_new/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} --test-log \
+    python parse_test_res.py /l/users/ashshak.sharifdeen/output2/base2new/test_new/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG} --test-log \
         | tee -a $LOGFILE
 
     echo "-----------------------------" | tee -a $LOGFILE

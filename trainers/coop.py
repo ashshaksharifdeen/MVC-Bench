@@ -405,7 +405,7 @@ class CoOp(TrainerX):
             logits = self.model.logits_val  #model.sematic_val  # shape (B, C)
             labels = label               # shape (B,)
             # fetch our helper from the registry
-            margin_var_fn = REGULARIZER_REGISTRY.get('inter_class_margin_variance')
+            """margin_var_fn = REGULARIZER_REGISTRY.get('inter_class_margin_variance')
             #margin_var   = margin_var_fn(logits, labels)
             # fetch and apply our new regularizer
             reg_fn = REGULARIZER_REGISTRY.get('margin_mean_var')
@@ -506,7 +506,7 @@ class CoOp(TrainerX):
             #MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT
             explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
             explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
-            #end-----    
+            #end-----    """
 
             loss = F.cross_entropy(output, label)
             #loss+=explicit_all_loss  #label_smooth_loss  #marg  00 in_reg + loss_mm_txt       #eccv_penalty_loss                          #(margin_reg +(5.0* loss_mm_txt))

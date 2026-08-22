@@ -11,7 +11,7 @@ from .oxford_pets import OxfordPets
 @DATASET_REGISTRY.register()
 class StanfordCars(DatasetBase):
 
-    dataset_dir = "/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset/stanford_cars"
+    dataset_dir = "/l/users/ashshak.sharifdeen/dataset/stanford_cars"
 
     def __init__(self, cfg):
         root = os.path.abspath(os.path.expanduser(cfg.DATASET.ROOT))

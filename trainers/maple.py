@@ -922,7 +922,7 @@ class MaPLe(TrainerX):
             labels = label               # shape (B,)
             loss_ce = loss
             # fetch our helper from the registry
-            margin_var_fn = REGULARIZER_REGISTRY.get('inter_class_margin_variance')
+            """margin_var_fn = REGULARIZER_REGISTRY.get('inter_class_margin_variance')
             #margin_var   = margin_var_fn(logits, labels)
             # fetch and apply our new regularizer
             reg_fn = REGULARIZER_REGISTRY.get('margin_mean_var')
@@ -1083,7 +1083,7 @@ class MaPLe(TrainerX):
             #mean var edit
             #MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT
             explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
-            explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
+            explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")"""
             #loss+=explicit_all_loss #eccv_penalty_loss  #margin_reg + 5.0*loss_mm_txt     #eccv_penalty_loss  #eccv_penalty_loss #eccv_penalty_loss                                 #eccv_penalty_loss #(margin_reg+ 5.0*loss_mm_txt)      #(margin_reg +(5.0*l1_text)) #+ (5.0*rafa) /#(5.0*loss_mm_txt)+(loss_nce_txt)<<tune and play around with thease
             # (E) Total training loss (match your paper objective)
             #loss_total = loss_ce + lam_margin * margin_reg + lam_mom * loss_mm_txt

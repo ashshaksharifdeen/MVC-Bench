@@ -38,7 +38,7 @@ set -Eeuo pipefail
 # Command-line arguments
 # ----------------------------------------------------------------
 
-GPU_ID="${1:-${GPU_ID:-1}}"
+GPU_ID="${1:-${GPU_ID:-0}}"
 MODE="${2:-all}"
 
 case "$MODE" in
@@ -60,8 +60,8 @@ export CUDA_VISIBLE_DEVICES="$GPU_ID"
 
 PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
 
-DATA_ROOT="${DATA_ROOT:-/storagepool/Ashshak/Vlm-calibration/C-TPT/dataset}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-/storagepool/Ashshak/output2/base2new}"
+DATA_ROOT="${DATA_ROOT:-/l/users/ashshak.sharifdeen/dataset}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-/l/users/ashshak.sharifdeen/output2/base2new}"
 
 TRAIN_PY="${TRAIN_PY:-$PROJECT_ROOT/train.py}"
 

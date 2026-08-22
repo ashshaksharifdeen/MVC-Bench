@@ -38,6 +38,17 @@ from collections import OrderedDict, defaultdict
 
 from dassl.utils import check_isfile, listdir_nohidden
 
+GFLOPS_TEST_REGEX = re.compile(
+    r"\[EFFICIENCY\]\s*GFLOPs\s*\(test\):\s*"
+    r"([\d\.eE+-]+)",
+    re.IGNORECASE,
+)
+
+TRAIN_TIME_MIN_REGEX = re.compile(
+    r"\[EFFICIENCY\]\s*Train time\s*\(min\):\s*"
+    r"([\d\.eE+-]+)",
+    re.IGNORECASE,
+)
 
 def compute_ci95(res):
     """95% confidence interval half-width."""
@@ -151,6 +162,56 @@ def parse_accuracy_from_log(
 
     return accuracy
 
+def parse_efficiency_from_log(log_path):
+    """
+    Parse optional run-level efficiency metrics from a log file.
+
+    The function scans the complete log because efficiency values are
+    printed after trainer.train() or trainer.test().
+    """
+    output = {}
+
+    with open(
+        log_path,
+        "r",
+        encoding="utf-8",
+        errors="replace",
+    ) as file:
+        for raw_line in file:
+            gflops_match = GFLOPS_TEST_REGEX.search(raw_line)
+
+            if gflops_match:
+                output["gflops_test"] = float(
+                    gflops_match.group(1)
+                )
+
+            time_match = TRAIN_TIME_MIN_REGEX.search(raw_line)
+
+            if time_match:
+                output["train_time_min"] = float(
+                    time_match.group(1)
+                )
+
+    return output
+
+def build_seed_result(
+    log_path,
+    test_log=False,
+    end_signal="Finish training",
+):
+    result = {
+        "accuracy": parse_accuracy_from_log(
+            log_path,
+            test_log=test_log,
+            end_signal=end_signal,
+        ),
+        "file": log_path,
+    }
+
+    result.update(parse_efficiency_from_log(log_path))
+
+    return result
+
 def collect_accuracy_by_seed(
     directory,
     test_log=False,
@@ -174,14 +235,19 @@ def collect_accuracy_by_seed(
     direct_log = osp.join(directory, "log.txt")
 
     if check_isfile(direct_log):
-        outputs["root"] = {
+        """outputs["root"] = {
             "accuracy": parse_accuracy_from_log(
                 direct_log,
                 test_log=test_log,
                 end_signal=end_signal
             ),
             "file": direct_log,
-        }
+        }"""
+        outputs["root"] = build_seed_result(
+            direct_log,
+            test_log=test_log,
+            end_signal=end_signal,
+        )
         return outputs
 
     subdirs = listdir_nohidden(directory, sort=True)
@@ -192,14 +258,19 @@ def collect_accuracy_by_seed(
         if not check_isfile(log_path):
             continue
 
-        outputs[subdir] = {
+        """outputs[subdir] = {
             "accuracy": parse_accuracy_from_log(
                 log_path,
                 test_log=test_log,
                 end_signal=end_signal
             ),
             "file": log_path,
-        }
+        }"""
+        outputs[subdir] = build_seed_result(
+            log_path,
+            test_log=test_log,
+            end_signal=end_signal,
+        )
 
     if not outputs:
         raise RuntimeError(
@@ -217,6 +288,12 @@ def parse_base_to_novel_hm(
     """
     Pair base and novel results by seed name and calculate HM.
     """
+    base_accuracies = []
+    novel_accuracies = []
+    seed_hms = []
+
+    gflops_values = []
+    train_time_values = []
     base_results = collect_accuracy_by_seed(
         directory=base_directory,
         test_log=args.test_log,
@@ -266,6 +343,22 @@ def parse_base_to_novel_hm(
     for seed in common_seeds:
         base_accuracy = base_results[seed]["accuracy"]
         novel_accuracy = novel_results[seed]["accuracy"]
+
+        base_record = base_results[seed]
+        novel_record = novel_results[seed]
+
+        # Use the base training log as the canonical source for one
+        # Table-8-style GFLOPs value.
+        if "gflops_test" in base_record:
+            gflops_values.append(base_record["gflops_test"])
+        elif "gflops_test" in novel_record:
+            gflops_values.append(novel_record["gflops_test"])
+
+        # Training time exists only in the training/base log.
+        if "train_time_min" in base_record:
+            train_time_values.append(
+                base_record["train_time_min"]
+            )
 
         hm = harmonic_mean(
             base_accuracy,
@@ -335,12 +428,57 @@ def parse_base_to_novel_hm(
     )
     print("======================================")
 
-    return OrderedDict([
+    gflops_mean = None
+    train_time_mean = None
+
+    if gflops_values:
+        gflops_mean = float(np.mean(gflops_values))
+        gflops_spread = (
+            compute_ci95(gflops_values)
+            if args.ci95
+            else float(np.std(gflops_values))
+        )
+
+        print(
+            f"=> GFLOPs (test): "
+            f"{gflops_mean:.4f} GFLOPs "
+            f"± {gflops_spread:.4f}"
+        )
+
+    if train_time_values:
+        train_time_mean = float(np.mean(train_time_values))
+        train_time_spread = (
+            compute_ci95(train_time_values)
+            if args.ci95
+            else float(np.std(train_time_values))
+        )
+
+        print(
+            f"=> Train time: "
+            f"{train_time_mean:.4f} min "
+            f"± {train_time_spread:.4f} min"
+        )
+
+    """return OrderedDict([
+        ("base_accuracy", mean_base),
+        ("novel_accuracy", mean_novel),
+        ("hm_seedwise_mean", mean_seed_hm),
+        ("hm", paper_style_hm),
+    ])"""
+    result = OrderedDict([
         ("base_accuracy", mean_base),
         ("novel_accuracy", mean_novel),
         ("hm_seedwise_mean", mean_seed_hm),
         ("hm", paper_style_hm),
     ])
+
+    if gflops_mean is not None:
+        result["gflops_test"] = gflops_mean
+
+    if train_time_mean is not None:
+        result["train_time_min"] = train_time_mean
+
+    return result
 
 def parse_function(*metrics, directory="", args=None, end_signal=None):
     print(f"Parsing files in {directory}")
@@ -395,15 +533,20 @@ def parse_function(*metrics, directory="", args=None, end_signal=None):
         for k, v in out.items():
             if k == "file":
                 msg += f"{v}  "
+                continue
+
+            #else:
+            #    unit = metric_units.get(k, "")
+            unit = metric_units.get(k, "")
+
+            if unit == "%":
+                msg += f"{k}: {v:.2f}%. "
+            elif unit:
+                msg += f"{k}: {v:.4f} {unit}. "
             else:
-                unit = metric_units.get(k, "")
+                msg += f"{k}: {v:.6f}. "
 
-                if unit == "%":
-                    msg += f"{k}: {v:.2f}%. "
-                else:
-                    msg += f"{k}: {v:.6f}. "
-
-                metrics_results[k].append(v)
+            metrics_results[k].append(v)
 
         print(msg)
 
@@ -417,6 +560,11 @@ def parse_function(*metrics, directory="", args=None, end_signal=None):
 
         if unit == "%":
             print(f"* {k}: {avg:.2f}% ± {std:.2f}%")
+        elif unit:
+            print(
+                f"* {k}: {avg:.4f} {unit} "
+                f"± {std:.4f} {unit}"
+            )
         else:
             print(f"* {k}: {avg:.6f} ± {std:.6f}")
 
@@ -575,6 +723,24 @@ def main(args, end_signal):
         "name": "piece",
         "regex": re.compile(r"=>\s*PIECE:\s*([\d\.eE+-]+)%", re.IGNORECASE),
         "unit": "%"
+    },
+    {
+        "name": "gflops_test",
+        "regex": re.compile(
+            r"\[EFFICIENCY\]\s*GFLOPs\s*\(test\):\s*"
+            r"([\d\.eE+-]+)",
+            re.IGNORECASE,
+        ),
+        "unit": "GFLOPs",
+    },
+    {
+        "name": "train_time_min",
+        "regex": re.compile(
+            r"\[EFFICIENCY\]\s*Train time\s*\(min\):\s*"
+            r"([\d\.eE+-]+)",
+            re.IGNORECASE,
+        ),
+        "unit": "min",
     },
     ]
 

@@ -4,8 +4,9 @@ GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 
 # Datasets to process
+#imagenet imagenet_a imagenet_r imagenet_sketch imagenetv2
 DATASETS=(
-    caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
+    caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars eurosat
 )
 
 # Common settings
@@ -14,7 +15,7 @@ TRAINER="HiCroPLReason"
 CFG="vit_b16_c2_ep50_batch32_16ctx"
 
 # Common result root
-RESULT_ROOT="/storagepool/Ashshak/output2/base2new"
+RESULT_ROOT="/l/users/ashshak.sharifdeen/output/base2new"
 
 # Timestamped log file
 TIMESTAMP=$(date +%F_%H-%M-%S)

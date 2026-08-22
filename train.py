@@ -397,6 +397,33 @@ def setup_cfg(args):
 
     return cfg
 
+def report_test_gflops(trainer):
+    """
+    Profile and print a canonical GFLOPs result.
+    """
+    profile = trainer.profile_test_gflops()
+
+    print(
+        f"[EFFICIENCY] GFLOPs (test): "
+        f"{profile['gflops_test']:.6f}"
+    )
+
+    print(
+        "[EFFICIENCY] GFLOPs protocol: "
+        f"batch={profile['batch_size']}, "
+        f"input={profile['height']}x{profile['width']}, "
+        f"classes={profile['num_classes']}"
+    )
+
+    unsupported_ops = profile["unsupported_ops"]
+
+    if unsupported_ops:
+        print(
+            "[EFFICIENCY] Unsupported FLOP operators: "
+            f"{unsupported_ops}"
+        )
+
+    return profile
 
 def main(args):
     cfg = setup_cfg(args)
@@ -416,12 +443,24 @@ def main(args):
 
     trainer = build_trainer(cfg)
     # if cfg.TRAINER.DAPT.PROTOTYPE_GEN == False:
+    #if args.eval_only:
+    #    trainer.load_model(args.model_dir, epoch=args.load_epoch)
+    #    trainer.test()
+    #    return
     if args.eval_only:
         trainer.load_model(args.model_dir, epoch=args.load_epoch)
+
+        # Run normal evaluation first so evaluator metrics are printed first.
         trainer.test()
+
+        # Print GFLOPs after evaluator output. This is important because
+        # parse_test_res.py --test-log starts parsing after evaluator output.
+        if args.profile_gflops:
+            report_test_gflops(trainer)
+
         return
 
-    if not args.no_train:
+    """if not args.no_train:
         start = time.time()
         trainer.train()
         torch.cuda.synchronize()
@@ -432,7 +471,48 @@ def main(args):
         else:
             peak_mem = 0.0
         print(f"[PROFILE] Total train time: {total_time:.1f}s "
-          f"({total_time/60:.2f} min), peak GPU memory: {peak_mem:.2f} GB")        
+          f"({total_time/60:.2f} min), peak GPU memory: {peak_mem:.2f} GB")"""
+    if not args.no_train:
+        cuda_enabled = torch.cuda.is_available() and cfg.USE_CUDA
+
+        if cuda_enabled:
+            torch.cuda.synchronize()
+
+        start_time = time.perf_counter()
+
+        trainer.train()
+
+        if cuda_enabled:
+            torch.cuda.synchronize()
+
+        elapsed_seconds = time.perf_counter() - start_time
+        elapsed_minutes = elapsed_seconds / 60.0
+
+        if cuda_enabled:
+            peak_mem_gb = (
+                torch.cuda.max_memory_allocated() / (1024 ** 3)
+            )
+        else:
+            peak_mem_gb = 0.0
+
+        # Keep your existing human-readable profile line.
+        print(
+            f"[PROFILE] Total train time: "
+            f"{elapsed_seconds:.1f}s "
+            f"({elapsed_minutes:.2f} min), "
+            f"peak GPU memory: {peak_mem_gb:.2f} GB"
+        )
+
+        # Add a stable line specifically intended for the parser.
+        print(
+            f"[EFFICIENCY] Train time (min): "
+            f"{elapsed_minutes:.6f}"
+        )
+
+        # Run GFLOP analysis after timing so profiling overhead is not
+        # included in the reported training duration.
+        if args.profile_gflops:
+            report_test_gflops(trainer)         
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -486,6 +566,11 @@ if __name__ == "__main__":
         default=None,
         nargs=argparse.REMAINDER,
         help="modify config options using the command-line",
+    )
+    parser.add_argument(
+        "--profile-gflops",
+        action="store_true",
+        help="profile and print test-time GFLOPs using batch size 1",
     )
     args = parser.parse_args()
     main(args)

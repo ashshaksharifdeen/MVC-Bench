@@ -106,169 +106,44 @@ def load_clip_to_cpu(cfg, zero_shot_model=False):
 class TextEncoder(nn.Module):
     def __init__(self, clip_model):
         super().__init__()
+
         self.transformer = clip_model.transformer
-        self.token_embedding = clip_model.token_embedding
         self.positional_embedding = clip_model.positional_embedding
         self.ln_final = clip_model.ln_final
         self.text_projection = clip_model.text_projection
         self.dtype = clip_model.dtype
 
-    def build_frozen_text_x(self, tokenized_prompts):
-        with torch.no_grad():
-            tokenized_prompts = tokenized_prompts.to(self.token_embedding.weight.device)
-            raw = self.token_embedding(tokenized_prompts).type(self.dtype)
-            raw = raw + self.positional_embedding.type(self.dtype)
-            raw = raw.permute(1, 0, 2)   # NLD -> LND
-        return  raw    #raw.detach()
-
-    def _text_get_prompt_tokens(self, x, n_ctx):
-        """
-        x: [77, n_cls, 512]
-        return prompt slots: [n_ctx, n_cls, 512]
-        """
-        return x[1:1 + n_ctx, :, :]
-
-
-    def _text_replace_prompt_tokens(self, x, prompt_tokens, n_ctx):
-        """
-        Replace text prompt slots with refined tokens.
-        x: [77, n_cls, 512]
-        prompt_tokens: [n_ctx, n_cls, 512] or [n_ctx, 512]
-        """
-        if prompt_tokens.dim() == 2:
-            prompt_tokens = prompt_tokens.unsqueeze(1).expand(-1, x.shape[1], -1)
-
-        prompt_tokens = prompt_tokens.to(dtype=x.dtype, device=x.device)
-
-        prefix = x[:1, :, :]
-        suffix = x[1 + n_ctx:, :, :]
-        return torch.cat([prefix, prompt_tokens, suffix], dim=0)
-
-
-    def _run_block_payload(
-        self,
-        blk,
-        payload,
-        disable_prompt_injection=False,
-        prompt_override=None,
-    ):
-        """
-        Run one transformer block with optional recursive-control flags.
-        """
-        block_input = {
-            "x": payload[0],
-            "cross_prompts_deeper": payload[1],
-            "frozen_x": payload[2],
-            "frozen_contexts_list": payload[3],
-            "init_payload": payload[4],
-            "disable_prompt_injection": disable_prompt_injection,
-            "prompt_override": prompt_override,
-        }
-
-        block_output = blk(block_input)
-
-        return [
-            block_output["x"],
-            block_output["cross_prompts_deeper"],
-            block_output["frozen_x"],
-            block_output["frozen_contexts_list"],
-            block_output["init_payload"],
-        ]    
-
-    """def forward(self, prompts, tokenized_prompts, cross_prompts_text_deeper,  init_cross_prompts_text):
-        x = prompts + self.positional_embedding.type(self.dtype)
-        x = x.permute(1, 0, 2)  # NLD -> LND
-        # frozen branch: direct CLIP token embeddings, no learnable ctx inserted
-        frozen_x = self.build_frozen_text_x(tokenized_prompts).to(device=x.device, dtype=x.dtype)
-        #combined = [x, cross_prompts_text_deeper]
-        #outputs = self.transformer(combined)
-        outputs = self.transformer([x, cross_prompts_text_deeper, frozen_x,None,init_cross_prompts_text])
-        x = outputs[0]
-        x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x).type(self.dtype)
-
-        # x.shape = [batch_size, n_ctx, transformer.width]
-        # take features from the eot embedding (eot_token is the highest number in each sequence)
-        x = x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)] @ self.text_projection
-
-        return x"""
-    """def forward(
-        self,
-        prompts,
-        tokenized_prompts,
-        cross_prompts_text_deeper,
-        init_cross_prompts_text,
-        init_cross_prompts_visual,
-        return_layer_states=False
-    ):
-        x = prompts + self.positional_embedding.type(self.dtype)
-        x = x.permute(1, 0, 2)  # NLD -> LND
-
-        frozen_x = self.build_frozen_text_x(tokenized_prompts).to(
-            device=x.device, dtype=x.dtype
-        )
-
-        init_payload = (init_cross_prompts_text, init_cross_prompts_visual)
-        payload = [x, cross_prompts_text_deeper, frozen_x, None, init_payload]
-
-        layer_states = []
-        for blk in self.transformer.resblocks:
-            payload = blk(payload)
-            layer_states.append(payload[0])   # [L, Ncls, 512]
-
-        x = payload[0]
-        x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x).type(self.dtype)
-        x = x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)] @ self.text_projection
-
-        if return_layer_states:
-            return x, layer_states
-
-        return x"""
-    
-    """def forward(
-        self,
-        prompts,
-        tokenized_prompts,
-        cross_prompts_text_deeper,
-        init_cross_prompts_text,
-        init_cross_prompts_visual,
-        return_layer_states=False
-    ):"""
     def forward(
-    self,
-    prompts,
-    tokenized_prompts,
-    cross_prompts_text_deeper,
-    init_cross_prompts_text,
-    init_cross_prompts_visual,
-    return_layer_states=False,
+        self,
+        prompts,
+        tokenized_prompts,
+        cross_prompts_text_deeper,
     ):
         x = prompts + self.positional_embedding.type(self.dtype)
-        x = x.permute(1, 0, 2)  # NLD -> LND
+        x = x.permute(1, 0, 2)
 
-        frozen_x = self.build_frozen_text_x(tokenized_prompts).to(
-            device=x.device, dtype=x.dtype
-        )
+        payload = [
+            x,
+            cross_prompts_text_deeper,
+        ]
 
-        init_payload = (init_cross_prompts_text, init_cross_prompts_visual)
-        payload = [x, cross_prompts_text_deeper, frozen_x, None, init_payload]
-
-        layer_inputs = []
-        layer_outputs = []
-
-        for blk in self.transformer.resblocks:
-            layer_inputs.append(payload[0])   # pre-block tokens
-            payload = blk(payload)
-            layer_outputs.append(payload[0])  # post-block tokens
+        for block in self.transformer.resblocks:
+            payload = block(payload)
 
         x = payload[0]
-        x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x).type(self.dtype)
-        x = x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)] @ self.text_projection
+        x = x.permute(1, 0, 2)
 
-        if return_layer_states:
-            return x, layer_inputs, layer_outputs, frozen_x
+        x = self.ln_final(x).type(self.dtype)
+
+        eot_indices = tokenized_prompts.argmax(dim=-1)
+
+        x = (
+            x[
+                torch.arange(x.shape[0]),
+                eot_indices,
+            ]
+            @ self.text_projection
+        )
 
         return x
 
@@ -1346,19 +1221,7 @@ class CommonPromptTransformer(nn.Module):
         #self.text_to_common = nn.Linear(text_dim, common_dim)
         #self.vision_to_common = nn.Linear(vision_dim, common_dim)
         # Modality-specific adapters into common space
-        self.text_to_common = MLPAdapter(
-            in_dim=text_dim,
-            out_dim=common_dim,
-            dropout=dropout,
-            zero_last=True,
-        )
 
-        self.vision_to_common = MLPAdapter(
-            in_dim=vision_dim,
-            out_dim=common_dim,
-            dropout=dropout,
-            zero_last=True,
-        )
 
         # Shared transformer encoder over prompt tokens
         """self.blocks = nn.ModuleList([
@@ -1392,7 +1255,7 @@ class CommonPromptTransformer(nn.Module):
             for idx in self.target_prompt_indices
         })
         # One layer-specific transformer stack per selected prompt layer
-        self.layer_blocks_vis = nn.ModuleDict({
+        """self.layer_blocks_vis = nn.ModuleDict({
             str(idx): nn.ModuleList([
                 CommonPromptTransformerBlock(
                     common_dim=vision_dim,
@@ -1402,7 +1265,7 @@ class CommonPromptTransformer(nn.Module):
                 for _ in range(depth-6)
             ])
             for idx in self.target_prompt_indices
-        })
+        })"""
         """self.shared_blocks = nn.ModuleList([
             CommonPromptTransformerBlock(
                 common_dim=common_dim,
@@ -1449,7 +1312,7 @@ class CommonPromptTransformer(nn.Module):
             dropout=dropout,
             zero_last=False,
         )
-        self.common_to_txt_proj = nn.Linear(common_dim, text_dim)
+        #self.common_to_txt_proj = nn.Linear(common_dim, text_dim)
 
         self.common_to_vision = MLPAdapter(
             in_dim=common_dim, #commin_dim_vis,
@@ -1457,7 +1320,7 @@ class CommonPromptTransformer(nn.Module):
             dropout=dropout,
             zero_last=False,
         )
-        self.common_to_vis_proj = nn.Linear(common_dim, vision_dim)
+        #self.common_to_vis_proj = nn.Linear(common_dim, vision_dim)
 
         """self.common_to_text = CommonToModalityTokenMixer(
             seq_len=self.prompt_len,
@@ -1498,22 +1361,22 @@ class CommonPromptTransformer(nn.Module):
                 
 
         # Type embeddings tell the shared transformer which tokens are text vs vision
-        self.text_type_embed = nn.Parameter(torch.zeros(1, common_dim))
-        self.vision_type_embed = nn.Parameter(torch.zeros(1, common_dim))
+        #self.text_type_embed = nn.Parameter(torch.zeros(1, common_dim))
+        #self.vision_type_embed = nn.Parameter(torch.zeros(1, common_dim))
 
         # Layer embeddings tell the transformer which prompt depth is being refined
-        self.layer_embed = nn.Parameter(torch.zeros(prompt_depth, common_dim))
+        #self.layer_embed = nn.Parameter(torch.zeros(prompt_depth, common_dim))
 
         # Learnable gate. Initial sigmoid(-3) ~= 0.047, so the prompt update starts small.
-        self.gate = nn.Parameter(torch.tensor(float(gate_init)))
+        #self.gate = nn.Parameter(torch.tensor(float(gate_init)))
 
         #self._init_stable()
 
-    def _init_stable(self): #why this line
-        """
-        Small output projection initialization prevents the new module from
-        strongly changing prompts at the first iteration.
-        """
+    """def _init_stable(self): #why this line
+        
+        #Small output projection initialization prevents the new module from
+        #strongly changing prompts at the first iteration.
+        
         nn.init.normal_(self.common_to_text.weight, std=1e-3)
         nn.init.zeros_(self.common_to_text.bias)
 
@@ -1522,7 +1385,7 @@ class CommonPromptTransformer(nn.Module):
 
         nn.init.normal_(self.text_type_embed, std=1e-3)
         nn.init.normal_(self.vision_type_embed, std=1e-3)
-        nn.init.normal_(self.layer_embed, std=1e-3)
+        nn.init.normal_(self.layer_embed, std=1e-3)"""
 
     def _target_prompt_indices(self, n_prompts: int):
         """
@@ -1550,7 +1413,6 @@ class CommonPromptTransformer(nn.Module):
         self,
         text_prompt: torch.Tensor,
         vision_prompt: torch.Tensor,
-        shared_prompt: torch.Tensor,
         prompt_index: int,
     ):
         """
@@ -1564,18 +1426,18 @@ class CommonPromptTransformer(nn.Module):
         vision_orig_dtype = vision_prompt.dtype
         vision_orig_device = vision_prompt.device
 
-        work_device = self.text_to_common.weight.device
-        work_dtype = self.text_to_common.weight.dtype
+        work_device = self.common_to_text.weight.device
+        work_dtype = self.common_to_text.weight.dtype
 
         t = text_prompt.to(device=work_device, dtype=work_dtype)
         v = vision_prompt.to(device=work_device, dtype=work_dtype)
-        s = shared_prompt.to(device=work_device, dtype=work_dtype)
+        #s = shared_prompt.to(device=work_device, dtype=work_dtype)
 
         # Project to common shared space
         t_common = t #self.text_to_common(t)       # [n_ctx, common_dim]
         v_common = v #t #self.vision_to_common(v)     # [n_ctx, common_dim]
 
-        layer_bias = self.layer_embed[prompt_index].unsqueeze(0) # why this
+        #layer_bias = self.layer_embed[prompt_index].unsqueeze(0) # why this
 
         t_common = t_common #+ self.text_type_embed + layer_bias
         v_common = v_common #+ self.vision_type_embed + layer_bias # why this line
@@ -1628,10 +1490,10 @@ class CommonPromptTransformer(nn.Module):
         v_refined_common = v_joint.squeeze(1)  # [n_ctx, common_dim]"""
 
         # Project back to modality-specific prompt dimensions
-        t_delta = self.common_to_txt_proj(t_refined_common) #self.common_to_text(t_refined_common)
-        v_delta = self.common_to_vis_proj(t_refined_common) #self.common_to_vision(v_refined_common)
+        t_delta = self.common_to_text(t_refined_common)
+        v_delta = self.common_to_vision(t_refined_common)
 
-        gate = self.residual_scale * torch.sigmoid(self.gate)
+        #gate = self.residual_scale * torch.sigmoid(self.gate)
 
         """refined_text = text_prompt + gate.to(
             dtype=text_orig_dtype,
@@ -1649,7 +1511,7 @@ class CommonPromptTransformer(nn.Module):
         #refined_vision = v_delta.to(dtype=vision_orig_dtype, device=vision_orig_device)
         return refined_text, refined_vision
 
-    def forward(self, text_prompts, vision_prompts, shared_prompts):
+    def forward(self, text_prompts, vision_prompts):
         """
         text_prompts:   list of [n_ctx, 512]
         vision_prompts: list of [n_ctx, 768]
@@ -1666,7 +1528,7 @@ class CommonPromptTransformer(nn.Module):
 
         refined_text = list(text_prompts)
         refined_vision = list(vision_prompts)
-        refined_shared = list(shared_prompts)
+        #refined_shared = list(shared_prompts)
 
         target_indices = self._target_prompt_indices(len(refined_text))
 
@@ -1674,7 +1536,6 @@ class CommonPromptTransformer(nn.Module):
             refined_text[idx], refined_vision[idx] = self._refine_pair(
                 refined_text[idx],
                 refined_vision[idx],
-                refined_shared[idx],
                 prompt_index=idx,
             )
 
@@ -1740,34 +1601,6 @@ class CrossModalPromptLearner(nn.Module):
 
         assert cfg_imsize == clip_imsize, f"cfg_imsize ({cfg_imsize}) must equal to clip_imsize ({clip_imsize})"
 
-        # ---- frozen no-prompt CLIP for per-layer context extraction ----
-        clip_model_frozen_ctx = load_clip_to_cpu(cfg, True)
-        if cfg.TRAINER.HICROPL.PREC in ["fp32", "amp"]:
-            clip_model_frozen_ctx.float()
-        else:
-            clip_model_frozen_ctx.half()
-        clip_model_frozen_ctx = clip_model_frozen_ctx.cuda()
-
-        self.frozen_text_ctx_encoder = FrozenTextLayerContextEncoder(clip_model_frozen_ctx)
-        self.frozen_visual_ctx_encoder = FrozenVisionLayerContextEncoder(clip_model_frozen_ctx.visual)
-
-        self.textselfatt = SelfAttention(d_model= ctx_dim, n_head=8)
-        self.visionselfatt = SelfAttention(d_model= v_dim, n_head=8)
-        # ---- initialisation cross-attention blocks (same-modality) ----
-        text_init_attn = CrossPromptAttention(
-            hidden_size=ctx_dim,
-            encoder_hidden_size=ctx_dim,
-            num_attention_heads=8,
-        )
-        visual_init_attn = CrossPromptAttention(
-            hidden_size=v_dim,
-            encoder_hidden_size=v_dim,
-            num_attention_heads=8,
-        )
-
-        self.text_init_attn_nets = _get_clones(text_init_attn, self.cross_prompts_depth)
-        self.visual_init_attn_nets = _get_clones(visual_init_attn, self.cross_prompts_depth)
-
         if cfg.TRAINER.HICROPL.PREC == "fp16":
             self.text_init_attn_nets = self.text_init_attn_nets.half()
             self.visual_init_attn_nets = self.visual_init_attn_nets.half()
@@ -1797,10 +1630,10 @@ class CrossModalPromptLearner(nn.Module):
             nn.init.normal_(single_para, std=0.02)
         self.cross_prompts_text = cross_prompts_text
         #shared parameters for deeper text prompts
-        shared_cross_prompts_text = nn.ParameterList([self.ctx] + [nn.Parameter(torch.empty(n_ctx, 512, dtype=dtype)) for _ in range(self.cross_prompts_depth - 1)])
-        for single_para in shared_cross_prompts_text[1:]:
-            nn.init.normal_(single_para, std=0.02)
-        self.shared_cross_prompts_text = shared_cross_prompts_text
+        #shared_cross_prompts_text = nn.ParameterList([self.ctx] + [nn.Parameter(torch.empty(n_ctx, 512, dtype=dtype)) for _ in range(self.cross_prompts_depth - 1)])
+        #for single_para in shared_cross_prompts_text[1:]:
+        #    nn.init.normal_(single_para, std=0.02)
+        #self.shared_cross_prompts_text = shared_cross_prompts_text
         ######## cross-modal text token initialization end ########
 
         ######## cross-modal visual token initialization ########
@@ -1811,7 +1644,7 @@ class CrossModalPromptLearner(nn.Module):
         ######## cross-modal visual token initialization end ########
 
         ######## knowledge mapper network and LKP network initialization ########
-        self.text2visual_net = CrossPromptAttention(hidden_size=v_dim, encoder_hidden_size=ctx_dim, num_attention_heads=8)
+        """self.text2visual_net = CrossPromptAttention(hidden_size=v_dim, encoder_hidden_size=ctx_dim, num_attention_heads=8)
         self.visual2text_net = CrossPromptAttention(hidden_size=ctx_dim, encoder_hidden_size=v_dim, num_attention_heads=8)
         if cfg.TRAINER.HICROPL.PREC == "fp16":
             self.text2visual_net, self.visual2text_net = self.text2visual_net.half(), self.visual2text_net.half()
@@ -1823,9 +1656,9 @@ class CrossModalPromptLearner(nn.Module):
         text_proxy_token = torch.randn(1, ctx_dim, dtype=dtype)
         self.text_proxy_token = nn.ParameterList([nn.Parameter(text_proxy_token) for _ in range(self.cross_layer)])
         visual_proxy_token = torch.randn(1, v_dim, dtype=dtype)
-        self.visual_proxy_token = nn.ParameterList([nn.Parameter(visual_proxy_token) for _ in range(self.cross_layer, self.cross_prompts_depth)])
-        if cfg.TRAINER.HICROPL.PREC == "fp16":
-            self.attn_pooling_text_nets, self.attn_pooling_visual_nets = self.attn_pooling_text_nets.half(), self.attn_pooling_visual_nets.half()
+        self.visual_proxy_token = nn.ParameterList([nn.Parameter(visual_proxy_token) for _ in range(self.cross_layer, self.cross_prompts_depth)])"""
+        #if cfg.TRAINER.HICROPL.PREC == "fp16":
+        #    self.attn_pooling_text_nets, self.attn_pooling_visual_nets = self.attn_pooling_text_nets.half(), self.attn_pooling_visual_nets.half()
         ######## knowledge mapper network and LKP network initialization end ########
 
         ######## preparation for distillation ########
@@ -1878,7 +1711,7 @@ class CrossModalPromptLearner(nn.Module):
         self.n_ctx = n_ctx
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor, [n_cls, 77]
         self.name_lens = name_lens
-        self.t2v_trm_blocks = nn.ModuleList([
+        """self.t2v_trm_blocks = nn.ModuleList([
             CrossModalTRM(
             target_dim=v_dim,      # visual prompt dim = 768
             source_dim=ctx_dim,    # text proxy dim = 512
@@ -1887,9 +1720,9 @@ class CrossModalPromptLearner(nn.Module):
             warmup=1,
             )
             for _ in range(self.cross_layer)
-        ])
+        ])"""
 
-        self.v2t_trm_blocks = nn.ModuleList([
+        """self.v2t_trm_blocks = nn.ModuleList([
             CrossModalTRM(
                 target_dim=ctx_dim,    # text prompt dim = 512
                 source_dim=v_dim,      # visual proxy dim = 768
@@ -1898,25 +1731,25 @@ class CrossModalPromptLearner(nn.Module):
                 warmup=1,
             )
             for _ in range(self.cross_prompts_depth - self.cross_layer)
-        ])
+        ])"""
 
         # ------------------------------------------------------------
         # Layerwise cross-modal alignment settings
         # ------------------------------------------------------------
-        self.align_start = cfg.TRAINER.HICROPLReason.ALIGN_START
-        self.align_end = cfg.TRAINER.HICROPLReason.ALIGN_END
-        self.layer_align_lambda = cfg.TRAINER.HICROPLReason.ALIGN_LAMBDA #cfg.TRAINER.HICROPL.ALIGN_LAMBDA
+        #self.align_start = cfg.TRAINER.HICROPLReason.ALIGN_START
+        #self.align_end = cfg.TRAINER.HICROPLReason.ALIGN_END
+        #self.layer_align_lambda = cfg.TRAINER.HICROPLReason.ALIGN_LAMBDA #cfg.TRAINER.HICROPL.ALIGN_LAMBDA
 
         #assert 0 <= self.align_start <= self.align_end <= self.cross_prompts_depth, \
         #    f"ALIGN_START/ALIGN_END must be within [0, {self.cross_prompts_depth - 1}]"
 
-        self.align_layers = list(range(self.align_start, self.align_end + 1))
+        #self.align_layers = list(range(self.align_start, self.align_end + 1))
 
         t2v_hidden = cfg.TRAINER.HICROPLReason.ALIGN_T2V_HIDDEN
         v2t_hidden = cfg.TRAINER.HICROPLReason.ALIGN_V2T_HIDDEN
         align_dropout = cfg.TRAINER.HICROPLReason.ALIGN_DROPOUT
 
-        self.layer_text_to_vision_mlps = nn.ModuleList([
+        """self.layer_text_to_vision_mlps = nn.ModuleList([
             CrossModalMLPProjector(
                 in_dim=ctx_dim,      # 512
                 out_dim=v_dim,       # 768
@@ -1934,11 +1767,11 @@ class CrossModalPromptLearner(nn.Module):
                 dropout=align_dropout,
             )
             for _ in self.align_layers
-        ])
+        ])"""
 
-        if cfg.TRAINER.HICROPL.PREC == "fp16":
+        """if cfg.TRAINER.HICROPL.PREC == "fp16":
             self.layer_text_to_vision_mlps = self.layer_text_to_vision_mlps.half()
-            self.layer_vision_to_text_mlps = self.layer_vision_to_text_mlps.half()
+            self.layer_vision_to_text_mlps = self.layer_vision_to_text_mlps.half()"""
 
         #if cfg.TRAINER.HICROPL.PREC == "fp16":
         #    self.t2v_trm_blocks = self.t2v_trm_blocks.half()
@@ -1955,55 +1788,13 @@ class CrossModalPromptLearner(nn.Module):
     def reset_ds_statevision(self):
         self.z_Lv_prev = None
         self.z_Hv_prev = None"""
-    def _build_frozen_initialized_prompts(self, image):
-        """
-        Build per-depth prompt initialisations using:
-        query = learnable prompt init
-        key/value = frozen same-layer encoder context
-        """
-        #tokenized_prompts = self.tokenized_prompts.to(self.ctx.device)
-        tokenized_prompts = self.gpt_tokenized_prompts.to(self.ctx.device)
-        # frozen same-layer contexts
-        frozen_text_ctxs = self.frozen_text_ctx_encoder(
-            tokenized_prompts=tokenized_prompts,
-            n_ctx=self.n_ctx,
-            prompt_depth=self.cross_prompts_depth,
-        )   # list of [n_ctx, 512]
-
-        frozen_visual_ctxs = self.frozen_visual_ctx_encoder(
-            image=image,
-            n_ctx=self.n_ctx,
-            prompt_depth=self.cross_prompts_depth,
-        )   # list of [n_ctx, 768]
-        return frozen_text_ctxs, frozen_visual_ctxs
-
-        """init_cross_prompts_text = []
-        init_cross_prompts_visual = []
-
-        for d in range(self.cross_prompts_depth):
-            # query = learnable prompt init
-            q_text = self.cross_prompts_text[d]      # [n_ctx, 512]
-            q_vis = self.cross_prompts_visual[d]     # [n_ctx, 768]
-
-            # key/value = same-layer frozen encoder context
-            kv_text = frozen_text_ctxs[d].to(dtype=q_text.dtype, device=q_text.device)
-            kv_vis = frozen_visual_ctxs[d].to(dtype=q_vis.dtype, device=q_vis.device)
-
-            # initialise prompt with same-modality cross-attention
-            init_text_d = self.text_init_attn_nets[d](q_text, kv_text, kv_text)      # [n_ctx, 512]
-            init_vis_d = self.visual_init_attn_nets[d](q_vis, kv_vis, kv_vis)        # [n_ctx, 768]
-
-            init_cross_prompts_text.append(init_text_d)
-            init_cross_prompts_visual.append(init_vis_d)
-
-        return init_cross_prompts_text, init_cross_prompts_visual"""
-
 
     def reset_ds_state(self):
-        for blk in self.t2v_trm_blocks:
+        """for blk in self.t2v_trm_blocks:
             blk.reset_ds_state()
         for blk in self.v2t_trm_blocks:
-            blk.reset_ds_state()         
+            blk.reset_ds_state()"""
+        return None         
 
 
     def construct_prompts(self, ctx, prefix, suffix, label=None):
@@ -2026,267 +1817,44 @@ class CrossModalPromptLearner(nn.Module):
         )
         return prompts
 
-    def forward(self,image):
-        # ----- SAME-MODALITY FROZEN-CONTEXT INITIALISATION -----
-        init_cross_prompts_text, init_cross_prompts_visual = self._build_frozen_initialized_prompts(image)
-        #self attention text
-        #print("cross_prompts_text len", len(self.cross_prompts_text))
-        text_selfatt_cross = []
-        for i in range(len(self.cross_prompts_text)):
-            #print("shape text",self.cross_prompts_text[i].shape)
-            text_att = self.textselfatt(self.cross_prompts_text[i])
-            text_selfatt_cross.append(text_att)
-        #print("text_selfatt_cross len", len(text_selfatt_cross))
-        #self attention vision
-        #print("cross_prompts_visual len", len(self.cross_prompts_visual))
-        vision_selfatt_cross = []
-        for i in range(len(self.cross_prompts_visual)):
-            #print("shape vision",self.cross_prompts_visual[i].shape)
-            vis_att = self.visionselfatt(self.cross_prompts_visual[i])
-            vision_selfatt_cross.append(vis_att)  
-        #print("vision_selfatt_cross len", len(vision_selfatt_cross))         
-        # first layer text token
-        ctx =  self.cross_prompts_text[0]
-        if ctx.dim() == 2:
-            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)  # [n_cls, 4, 512]"""
-        #zero-shot crossattent
-        """ctx = init_cross_prompts_text[0]
-        if ctx.dim() == 2:
-            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)"""
-        prefix = self.token_prefix
-        suffix = self.token_suffix
-        # construct first layer text input
-        text_input = self.construct_prompts(ctx, prefix, suffix)  # [n_cls, 77, 512]
-
-        ######## T->I mapping ########
-        visual_prompts = torch.cat([self.cross_prompts_visual[i].unsqueeze(0) for i in range(self.cross_layer)], dim=0)  # [self.cross_layer, n_ctx, 768]
-        text_prompts =  torch.cat([self.cross_prompts_text[i].unsqueeze(0) for i in range(self.cross_layer)], dim=0)  # [self.cross_layer, n_ctx, 512]
-        #visual_prompts = torch.cat([vision_selfatt_cross[i].unsqueeze(0) for i in range(self.cross_layer)], dim=0)  # [self.cross_layer, n_ctx, 768]
-        #text_prompts =  torch.cat([text_selfatt_cross[i].unsqueeze(0) for i in range(self.cross_layer)], dim=0) 
-        #zero-shot crossattent
-        #visual_prompts = torch.stack([init_cross_prompts_visual[i] for i in range(self.cross_layer)], dim=0)
-        #text_prompts = torch.stack([init_cross_prompts_text[i] for i in range(self.cross_layer)], dim=0)
-        visual_prompts_copy = visual_prompts.clone()
-        
-
-         
-        # LKP's work
-        proxy_text_tokens = []
-        for i in range(self.cross_layer):
-            # For T->I mapping, the text prompts should be compressed, text_proxy_token as Q, cross_prompts_text[i] as K, V.
-            text_proxy_token = self.attn_pooling_text_nets[i](
-                token_query=self.text_proxy_token[i],  # [1, ctx_dim]
-                sequence_key= self.cross_prompts_text[i], #init_cross_prompts_text[i],  #self.cross_prompts_text[i],  # [n_ctx, ctx_dim]
-                sequence_value= self.cross_prompts_text[i] #init_cross_prompts_text[i] #self.cross_prompts_text[i]  # [n_ctx, ctx_dim]
-            )
-            proxy_text_tokens.append(text_proxy_token)
-        proxy_text_prompts = torch.cat(proxy_text_tokens, dim=0)  # [self.cross_layer, 1, ctx_dim]
-        visual_prompts = visual_prompts.view(-1, visual_prompts.shape[-1])  # [self.cross_layer * n_ctx, 768]
-        #text_selfatt = torch.cat(text_selfatt_cross, dim=0) 
-        proxy_text_prompts = proxy_text_prompts.view(-1, proxy_text_prompts.shape[-1])  # [self.cross_layer, 512]
-        #text_selfatt = text_selfatt.view(-1, text_selfatt.shape[-1]) 
-        # cross modal action for [0: self.cross_layer]: T->I
-        #trm---block---
-        # -------- T -> I mapping (correct TRM) --------
-        updated_visual_prompt_list = []
-
-        for i in range(self.cross_layer):
-            base_visual_i = self.cross_prompts_visual[i] #init_cross_prompts_visual[i] #self.cross_prompts_visual[i]   # [n_ctx, 768]
-            proxy_text_i = proxy_text_tokens[i]            # [1, 512]
-
-            refined_visual_i = self.t2v_trm_blocks[i](base_visual_i, proxy_text_i)
-            updated_visual_prompt_list.append(refined_visual_i)
-
-        updated_visual_prompts = torch.stack(updated_visual_prompt_list, dim=0)  # [cross_layer, n_ctx, 768]
-        #updated_visual_prompts= visual_prompts
-        #updated_visual_prompts = self.text2visual_net(visual_prompts, proxy_text_prompts, proxy_text_prompts)  # [self.cross_layer * n_ctx, 768]
-        #updated_visual_prompts = updated_visual_prompts.view(self.cross_layer, -1, updated_visual_prompts.shape[-1])  # [self.cross_layer, n_ctx, 768]
-        #for i in range(self.cross_layer):
-        #    self.cross_prompts_visual[i].data.copy_(updated_visual_prompts[i])
-            #vision_selfatt_cross[i].data.copy_(updated_visual_prompts[i])
-
-        #trm block end------------
-        #recursive reasoning: updated_visual_prompts are also used for updating text prompts in the next layer
-        """updated_visual_prompts=visual_prompts
-        if (self.z_L_prev is not None) and (self.z_H_prev is not None):
-                z_L= self.z_L_prev
-                z_H= self.z_H_prev
-        else:
-                z_L= visual_prompts.clone()
-                z_H= visual_prompts.clone()
-        #with torch.no_grad():
-        for h in range(2): #higher recursive
-                    for l in range(2): #lower recursive
-                        z_L = self.text2visual_net(z_L, proxy_text_prompts, proxy_text_prompts)
-                    z_H = self.text2visual_net(z_L, proxy_text_prompts, proxy_text_prompts) # think in different way to update this        
-        #for l in range(2): #lower recursive
-        #        z_L = self.text2visual_net(z_L+z_H, proxy_text_prompts, proxy_text_prompts)
-        #z_H = self.text2visual_net(z_L, proxy_text_prompts, proxy_text_prompts)
-        z_H = self.text2visual_net(z_H, proxy_text_prompts, proxy_text_prompts)
-        self.z_L_prev = z_L.detach()
-        self.z_H_prev = z_H.detach()
-        updated_visual_prompts=z_H+updated_visual_prompts
-        updated_visual_prompts = self.text2visual_net(updated_visual_prompts, proxy_text_prompts, proxy_text_prompts)        
-        #end of recursive reasoning: updated_visual_prompts are not used for updating text prompts in the next layer
-        #hicropl visual prompt----------------------
-        #updated_visual_prompts = self.text2visual_net(visual_prompts, proxy_text_prompts, proxy_text_prompts)  # [self.cross_layer * n_ctx, 768]
-        updated_visual_prompts = updated_visual_prompts.view(self.cross_layer, -1, updated_visual_prompts.shape[-1])  # [self.cross_layer, n_ctx, 768]
-        for i in range(self.cross_layer):
-            self.cross_prompts_visual[i].data.copy_(updated_visual_prompts[i])"""
-        ######## T->I mapping end ########
-
-        ######## I->T mapping ########
-        text_prompts = torch.cat([self.cross_prompts_text[i].unsqueeze(0) for i in range(self.cross_layer, self.cross_prompts_depth)], dim=0)  # [all_layer - self.cross_layer, n_ctx, 512]
-        visual_prompts = torch.cat([self.cross_prompts_visual[i].unsqueeze(0) for i in range(self.cross_layer, self.cross_prompts_depth)], dim=0)  # [all_layer - self.cross_layer, n_ctx, 768]
-        #text_prompts = torch.cat([text_selfatt_cross[i].unsqueeze(0) for i in range(self.cross_layer, self.cross_prompts_depth)], dim=0)  # [all_layer - self.cross_layer, n_ctx, 512]
-        #visual_prompts = torch.cat([vision_selfatt_cross[i].unsqueeze(0) for i in range(self.cross_layer, self.cross_prompts_depth)], dim=0)
-        #zero shot
-        """text_prompts = torch.stack(
-            [init_cross_prompts_text[i] for i in range(self.cross_layer, self.cross_prompts_depth)],
-            dim=0
+    def forward(self, image):
+        final_cross_prompts_text = list(
+            self.cross_prompts_text
         )
-        visual_prompts = torch.stack(
-            [init_cross_prompts_visual[i] for i in range(self.cross_layer, self.cross_prompts_depth)],
-            dim=0
-        )"""
-        text_prompts_copy = text_prompts.clone()
-        # LKP's work
-        proxy_visual_tokens = []
-        for i in range(self.cross_layer, self.cross_prompts_depth):
-           
-            # For I->T mapping, the visual prompts should be compressed, visual_proxy_token as Q, cross_prompts_visual[i] as K, V.
-            visual_proxy_token = self.attn_pooling_visual_nets[i - self.cross_layer](
-                
-                token_query=self.visual_proxy_token[i - self.cross_layer],  # [1, v_dim]
-                sequence_key= self.cross_prompts_visual[i], #self.cross_prompts_visual[i], #init_cross_prompts_visual[i],   #self.cross_prompts_visual[i],  # [n_ctx, v_dim]
-                sequence_value= self.cross_prompts_visual[i] #self.cross_prompts_visual[i] #init_cross_prompts_visual[i] #self.cross_prompts_visual[i]  # [n_ctx, v_dim]
-            )
-            proxy_visual_tokens.append(visual_proxy_token)
-            proxy_visual_prompts = torch.cat(proxy_visual_tokens, dim=0)  # [self.cross_prompts_depth - self.cross_layer, 1, v_dim]
-        text_prompts = text_prompts.view(-1, text_prompts.shape[-1])  # [(all_layer - self.cross_layer) * n_ctx, 512]
-        proxy_visual_prompts = proxy_visual_prompts.view(-1, proxy_visual_prompts.shape[-1])  # [(all_layer - self.cross_layer) * n_ctx, 768]
-        #visual_selfatt =  torch.cat(vision_selfatt_cross, dim=0)
-        #visual_selfatt =  visual_selfatt.view(-1, visual_selfatt.shape[-1])
-        # cross modal action for [0: self.cross_layer]: I->T
-        #trm block start---
-        # -------- I -> T mapping (correct TRM) --------
-        updated_text_prompt_list = []
 
-        for j in range(self.cross_prompts_depth - self.cross_layer):
-            layer_idx = self.cross_layer + j
-           
-            base_text_j = self.cross_prompts_text[layer_idx] #init_cross_prompts_text[layer_idx] #self.cross_prompts_text[layer_idx]   # [n_ctx, 512]
-            proxy_visual_j = proxy_visual_tokens[j]            # [1, 768]
+        final_cross_prompts_visual = list(
+            self.cross_prompts_visual
+        )
 
-            refined_text_j = self.v2t_trm_blocks[j](base_text_j, proxy_visual_j)
-            updated_text_prompt_list.append(refined_text_j)
+        """if self.common_prompt_transformer is not None:
+            (
+                final_cross_prompts_text,
+                final_cross_prompts_visual,
+            ) = self.common_prompt_transformer(
+                final_cross_prompts_text,
+                final_cross_prompts_visual,
+            )"""
 
-        updated_text_prompts = torch.stack(updated_text_prompt_list, dim=0)  # [depth-cross_layer, n_ctx, 512]
-        #updated_text_prompts = text_prompts
-        #updated_text_prompts = self.visual2text_net(text_prompts, proxy_visual_prompts, proxy_visual_prompts)  # [(all_layer - self.cross_layer) * n_ctx, 512]
-        #updated_text_prompts = updated_text_prompts.view(self.cross_prompts_depth - self.cross_layer, -1, updated_text_prompts.shape[-1])  # [self.cross_prompts_depth - self.cross_layer, n_ctx, 512]
-        #for i in range(self.cross_layer, self.cross_prompts_depth):
-        #    self.cross_prompts_text[i].data.copy_(updated_text_prompts[i - self.cross_layer])
-            #text_selfatt_cross[i].data.copy_(updated_text_prompts[i - self.cross_layer])
-        # trm block end------------
-        #recursive reasoning: updated_visual_prompts are also used for updating text prompts in the next layer
-        """updated_text_prompts=text_prompts
-        if (self.z_Lv_prev is not None) and (self.z_Hv_prev is not None):
-                z_Lv= self.z_Lv_prev
-                z_Hv= self.z_Hv_prev
-        else:
-                z_Lv= text_prompts.clone()
-                z_Hv= text_prompts.clone()
-        #with torch.no_grad():
-        for h in range(2): #higher recursive
-                    for l in range(2): #lower recursive
-                        z_Lv = self.visual2text_net(z_Lv, proxy_visual_prompts, proxy_visual_prompts)
-                    z_Hv = self.visual2text_net(z_Lv, proxy_visual_prompts, proxy_visual_prompts) # think in different way to update this        
-        #for l in range(2): #lower recursive
-        #        z_Lv = self.visual2text_net(z_Lv+z_Hv,proxy_visual_prompts, proxy_visual_prompts)
-        #z_Hv = self.visual2text_net(z_Lv, proxy_visual_prompts, proxy_visual_prompts)
-        z_Hv = self.visual2text_net(z_Hv, proxy_visual_prompts, proxy_visual_prompts)
-        self.z_Lv_prev = z_Lv.detach()
-        self.z_Hv_prev = z_Hv.detach()
-        updated_text_prompts=z_Hv+updated_text_prompts
-        updated_text_prompts = self.visual2text_net(updated_text_prompts, proxy_visual_prompts, proxy_visual_prompts)
-        #end of recursive reasoning: updated_visual_prompts are not used for updating text prompts in the next layer        
-        #updated_text_prompts = self.visual2text_net(text_prompts, proxy_visual_prompts, proxy_visual_prompts)  # [(all_layer - self.cross_layer) * n_ctx, 512]
-        updated_text_prompts = updated_text_prompts.view(self.cross_prompts_depth - self.cross_layer, -1, updated_text_prompts.shape[-1])  # [self.cross_prompts_depth - self.cross_layer, n_ctx, 512]
-        for i in range(self.cross_layer, self.cross_prompts_depth):
-            self.cross_prompts_text[i].data.copy_(updated_text_prompts[i - self.cross_layer])"""
-        ######## I->T mapping end ########
-        #After both refinements, assemble the full prompt lists instead of overwriting parameters:
-        # full visual prompt list
-        final_cross_prompts_visual = []
-        for i in range(self.cross_prompts_depth):
-            if i < self.cross_layer:
-                final_cross_prompts_visual.append(updated_visual_prompts[i])
-            else:
-                #final_cross_prompts_visual.append(vision_selfatt_cross[i])
-                final_cross_prompts_visual.append(self.cross_prompts_visual[i])
-                #final_cross_prompts_visual.append(init_cross_prompts_visual[i]) # ablation: without updating deeper visual prompts
-        # full text prompt list
-        final_cross_prompts_text = []
-        for i in range(self.cross_prompts_depth):
-            if i < self.cross_layer:
-                #final_cross_prompts_text.append(text_selfatt_cross[i])
-                final_cross_prompts_text.append(self.cross_prompts_text[i])
-                #final_cross_prompts_text.append(init_cross_prompts_text[i])
-            else:
-                final_cross_prompts_text.append(updated_text_prompts[i - self.cross_layer])
-        #end 
-        # extract deeper prompts
-        #cross_prompts_text_deeper = [self.cross_prompts_text[i] for i in range(1, len(self.cross_prompts_text))]
-        #cross_prompts_visual_deeper = [self.cross_prompts_visual[i] for i in range(1, len(self.cross_prompts_visual))]
-        #cross_prompts_text_deeper = [text_selfatt_cross[i] for i in range(1, len(text_selfatt_cross))]
-        #cross_prompts_visual_deeper = [vision_selfatt_cross[i] for i in range(1, len(vision_selfatt_cross))]
-        #cross_prompts_text_deeper = final_cross_prompts_text[1:] #[self.cross_prompts_text[i] for i in range(1, len(self.cross_prompts_text))]
-        #cross_prompts_visual_deeper = final_cross_prompts_visual[1:] #[self.cross_prompts_visual[i] for i in range(1, len(self.cross_prompts_visual))]
-        #return text_input, self.cross_prompts_visual[0], cross_prompts_text_deeper, cross_prompts_visual_deeper, init_cross_prompts_text, init_cross_prompts_visual
-        #return text_input, self.cross_prompts_visual[0], cross_prompts_text_deeper, cross_prompts_visual_deeper
-        #return text_input, final_cross_prompts_visual[0], final_cross_prompts_text, final_cross_prompts_visual
-        #return text_input, final_cross_prompts_visual[0], cross_prompts_text_deeper, cross_prompts_visual_deeper, init_cross_prompts_text, init_cross_prompts_visual
-
-        # ---------------------------------------------------------
-        # Prompt-only common transformer refinement
-        # ---------------------------------------------------------
-        # At this point, final_cross_prompts_text and final_cross_prompts_visual
-        # contain the actual prompts that will be injected into the respective encoders.
-        # We refine only these prompt tensors, not full CLIP hidden tokens.
-        if self.common_prompt_transformer is not None:
-            final_cross_prompts_text, final_cross_prompts_visual = self.common_prompt_transformer(
-                self.cross_prompts_text, #final_cross_prompts_text,
-                self.cross_prompts_visual, #final_cross_prompts_visual,
-                self.shared_cross_prompts_text,
-            )
-
-        # ---------------------------------------------------------
-        # Rebuild shallow text input using refined text prompt 0
-        # ---------------------------------------------------------
         ctx = final_cross_prompts_text[0]
 
         if ctx.dim() == 2:
-            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)  # [n_cls, n_ctx, 512]
+            ctx = ctx.unsqueeze(0).expand(
+                self.n_cls,
+                -1,
+                -1,
+            )
 
-        prefix = self.token_prefix
-        suffix = self.token_suffix
-
-        text_input = self.construct_prompts(ctx, prefix, suffix)  # [n_cls, 77, 512]
-
-        # ---------------------------------------------------------
-        # Extract refined deeper prompts
-        # ---------------------------------------------------------
-        cross_prompts_text_deeper = final_cross_prompts_text[1:]
-        cross_prompts_visual_deeper = final_cross_prompts_visual[1:]
+        text_input = self.construct_prompts(
+            ctx,
+            self.token_prefix,
+            self.token_suffix,
+        )
 
         return (
             text_input,
             final_cross_prompts_visual[0],
-            cross_prompts_text_deeper,
-            cross_prompts_visual_deeper,
-            init_cross_prompts_text,
-            init_cross_prompts_visual,
+            final_cross_prompts_text[1:],
+            final_cross_prompts_visual[1:],
         )
 
 
@@ -3061,13 +2629,13 @@ class CustomCLIP(nn.Module):
         # ---------------------------------------------------------
         # DAPT Eq. (13): dataset-level visual prototype intra loss
         # ---------------------------------------------------------
-        self.dapt_intra_enable = bool(probe_cfg.DAPT_INTRA_ENABLE)
-        self.dapt_intra_lambda = 1.0#float(probe_cfg.DAPT_INTRA_LAMBDA)
-        self.dapt_intra_mode = "one_minus_cos" #'one_minus_cos' #"l2_cos" #str(probe_cfg.DAPT_INTRA_MODE)
+        #self.dapt_intra_enable = bool(probe_cfg.DAPT_INTRA_ENABLE)
+        #self.dapt_intra_lambda = 1.0#float(probe_cfg.DAPT_INTRA_LAMBDA)
+        #self.dapt_intra_mode = "one_minus_cos" #'one_minus_cos' #"l2_cos" #str(probe_cfg.DAPT_INTRA_MODE)
 
         # This will be filled after computing prototypes from the full training dataset.
         # Shape after initialization: [num_classes, feature_dim]
-        self.register_buffer("dapt_visual_prototypes", torch.empty(0), persistent=False)
+        #self.register_buffer("dapt_visual_prototypes", torch.empty(0), persistent=False)
 
         self.poc_text_point_weight = 1.0 #float(probe_cfg.POC_TEXT_POINT_WEIGHT)
         self.popc_text_point_weight = 1.0 #float(probe_cfg.POPC_TEXT_POINT_WEIGHT)
@@ -3081,31 +2649,6 @@ class CustomCLIP(nn.Module):
         self.poc_image_orth_weight = 1.0 #float(probe_cfg.POC_IMAGE_ORTH_WEIGHT)
         # Final image-loss scaling
         self.popc_image_loss_weight = 1.0 #float(probe_cfg.POPC_IMAGE_LOSS_WEIGHT)
-        self.arcmc_loss = AdaptiveRelationalCLIPDistillLoss(
-            tau_rel=0.07,
-            tau_xmodal=0.07,
-            anchor_margin=0.20,
-            w_anchor=0.25,
-            w_rel=1.0,
-            w_xmodal=1.0,
-        )
-        self.arcmc_lambda = 1.0
-        self.contrastive_distill_loss = ContrastiveFeatureDistillationLoss(
-            temperature=0.07,
-            text_weight=1.0,
-            image_weight=1.0,
-            symmetric_text=False,
-            symmetric_image=False,
-        ) 
-        if self.probe_enable:
-            self.prompt_learner.probe_loss = ClassNormalizedOrthogonalProbeLoss(
-                init_text_features=self.prompt_learner.fixed_embeddings,
-                anchor_weight=probe_cfg.PROBE_ANCHOR_WEIGHT,
-                pair_weight=probe_cfg.PROBE_PAIR_WEIGHT,
-                orth_weight=probe_cfg.PROBE_ORTH_WEIGHT,
-                orth_margin=probe_cfg.PROBE_ORTH_MARGIN,
-                init_std=probe_cfg.PROBE_INIT_STD,
-            )
         self.tokenized_prompts = self.prompt_learner.tokenized_prompts
         self.image_encoder = clip_model.visual
         self.text_encoder = TextEncoder(clip_model)
@@ -3312,8 +2855,10 @@ class CustomCLIP(nn.Module):
         )
 
         return loss
-
-
+    def reset_deep_supervision_state(self):
+        #self.prompt_learner.reset_ds_state()
+        return None
+    
     def _popc_loss(
         self,
         text_features,
@@ -3356,614 +2901,7 @@ class CustomCLIP(nn.Module):
             "loss_popc_text": loss_text.detach(),
             "loss_popc_image": loss_image.detach(),
         }
-
-    def _build_frozen_pre_states(self, frozen_root, frozen_post_states):
-        """
-        Build frozen pre-block token states for each layer.
-
-        frozen_root: tokens before block 0
-        frozen_post_states[i]: output after block i
-
-        Then:
-          pre[0] = frozen_root
-          pre[l] = frozen_post_states[l-1] for l >= 1
-        """
-        pre_states = [frozen_root]
-        for i in range(1, len(frozen_post_states)):
-            pre_states.append(frozen_post_states[i - 1].detach())
-        return pre_states
-
-    def _cast_to_attn_dtype_device(self, x, attn_mod):
-        if getattr(attn_mod, "in_proj_weight", None) is not None:
-            return x.to(dtype=attn_mod.in_proj_weight.dtype, device=attn_mod.in_proj_weight.device)
-        return x
-
-    def _self_attn_out_from_block(self, block, q_x, k_x, v_x):
-        """
-        Compute Self-Attn output using the block's own ln_1 and attn.
-
-        Inputs are [L, N, D].
-        """
-        out_dtype = q_x.dtype
-        out_device = q_x.device
-
-        qn = block.ln_1(q_x)
-        kn = block.ln_1(k_x)
-        vn = block.ln_1(v_x)
-
-        qn = self._cast_to_attn_dtype_device(qn, block.attn)
-        kn = self._cast_to_attn_dtype_device(kn, block.attn)
-        vn = self._cast_to_attn_dtype_device(vn, block.attn)
-
-        attn_mask = getattr(block, "attn_mask", None)
-        if attn_mask is not None:
-            attn_mask = attn_mask.to(dtype=qn.dtype, device=qn.device)
-
-        out = block.attn(qn, kn, vn, need_weights=False, attn_mask=attn_mask)[0]
-        return out.to(dtype=out_dtype, device=out_device)
-
-    def _attention_distillation_loss(self, block, tuned_pre, frozen_pre):
-        """
-        Eq. (3):
-            || SelfAttn(Q,K,V) - SelfAttn(Q,Ks,Vs) ||_1
-
-        current  = SelfAttn(tuned, tuned, tuned)
-        ideal    = SelfAttn(tuned, frozen, frozen)
-        """
-        frozen_pre = frozen_pre.detach()
-
-        current_out = self._self_attn_out_from_block(
-            block=block,
-            q_x=tuned_pre,
-            k_x=tuned_pre,
-            v_x=tuned_pre,
-        )
-
-        ideal_out = self._self_attn_out_from_block(
-            block=block,
-            q_x=tuned_pre,
-            k_x=frozen_pre,
-            v_x=frozen_pre,
-        )
-
-        return F.l1_loss(current_out.float(), ideal_out.float(), reduction="mean")
-
-    def compute_layerwise_same_modality_ad_loss(
-        self,
-        text_pre_states,
-        vision_pre_states,
-        frozen_text_pre_states,
-        frozen_visual_pre_states,
-    ):
-        loss_text_list = []
-        loss_vision_list = []
-
-        for layer_idx in self.prompt_learner.align_layers:
-            # -------------------------
-            # text AD loss
-            # -------------------------
-            tuned_text_l = self._prepare_text_full_context(text_pre_states[layer_idx])
-            frozen_text_l = self._prepare_text_full_context(frozen_text_pre_states[layer_idx])
-            frozen_text_l = frozen_text_l.to(device=tuned_text_l.device, dtype=tuned_text_l.dtype)
-
-            text_block = self.text_encoder.transformer.resblocks[layer_idx]
-            loss_text_l = self._attention_distillation_loss(
-                block=text_block,
-                tuned_pre=tuned_text_l,
-                frozen_pre=frozen_text_l,
-            )
-            loss_text_list.append(loss_text_l)
-
-            # -------------------------
-            # vision AD loss
-            # -------------------------
-            tuned_vis_l = self._prepare_vision_full_context(
-                vision_pre_states[layer_idx], is_frozen=False
-            )
-            frozen_vis_l = self._prepare_vision_full_context(
-                frozen_visual_pre_states[layer_idx], is_frozen=True
-            )
-            frozen_vis_l = frozen_vis_l.to(device=tuned_vis_l.device, dtype=tuned_vis_l.dtype)
-
-            vision_block = self.image_encoder.transformer.resblocks[layer_idx]
-            loss_vision_l = self._attention_distillation_loss(
-                block=vision_block,
-                tuned_pre=tuned_vis_l,
-                frozen_pre=frozen_vis_l,
-            )
-            loss_vision_list.append(loss_vision_l)
-
-        if len(loss_text_list) == 0:
-            zero = torch.zeros((), device=text_pre_states[0].device, dtype=torch.float32)
-            return zero, zero, zero
-
-        loss_text = torch.stack(loss_text_list).mean()
-        loss_vision = torch.stack(loss_vision_list).mean()
-
-        loss_same_modal_ad = (
-            loss_text +
-            loss_vision
-        )
-
-        return loss_same_modal_ad, loss_text, loss_vision    
-
-    def _cosine_same_modality_loss(self, tuned, frozen):
-        """
-        tuned, frozen: [L, N, D]
-        cosine over feature dim, then mean over tokens and batch/classes
-        """
-        tuned = F.normalize(tuned.float(), dim=-1)
-        frozen = F.normalize(frozen.float(), dim=-1)
-        frozen+=tuned.detach()  # stop gradient on frozen
-        return 1.0 - (tuned * frozen).sum(dim=-1).mean()
-
-
-    def _prepare_text_full_context(self, layer_x):
-        """
-        text tuned/frozen states are already aligned in sequence length
-        layer_x: [L, Ncls, 512]
-        """
-        return layer_x
-
-
-    def _prepare_vision_full_context(self, layer_x, is_frozen=False):
-        """
-        tuned vision states include appended prompt tokens at the tail.
-        frozen vision states do not.
-
-        tuned vision  : [197 + n_ctx, B, 768]
-        frozen vision : [197, B, 768]
-        """
-        if not is_frozen:
-            n_ctx = self.prompt_learner.n_ctx
-            layer_x = layer_x[:-n_ctx, :, :]   # keep only CLS + patch tokens
-        return layer_x    
-
-    def _adaptive_token_pool(self, x, out_tokens):
-        """
-        x: [L, N, D]
-        1) average over batch/class dimension -> [L, D]
-        2) adaptively pool token axis L -> out_tokens
-        returns: [out_tokens, D]
-        """
-        x = x.mean(dim=1)                     # [L, D]
-        x = x.transpose(0, 1).unsqueeze(0)    # [1, D, L]
-        x = F.adaptive_avg_pool1d(x, out_tokens)
-        x = x.squeeze(0).transpose(0, 1)      # [out_tokens, D]
-        return x
-
-
-    def _pool_text_full_context(self, layer_x):
-        """
-        layer_x: [L_text, Ncls, 512]
-        Use the full text sequence, then compress to K tokens.
-        """
-        k = self.prompt_learner.n_ctx
-        return self._adaptive_token_pool(layer_x, k)   # [k, 512]
-
-
-    def _pool_vision_full_context(self, layer_x, is_frozen=False):
-        """
-        layer_x:
-        tuned vision  : [197 + n_ctx, B, 768]
-        frozen vision : [197, B, 768]
-
-        For tuned vision, drop the appended prompt tail before alignment so that
-        both tuned and frozen vision represent the same base CLS+patch token stream.
-        Then compress to K tokens.
-        """
-        k = self.prompt_learner.n_ctx
-        n_ctx = self.prompt_learner.n_ctx
-
-        if not is_frozen:
-            layer_x = layer_x[:-n_ctx, :, :]  # remove appended prompt tokens
-
-        return self._adaptive_token_pool(layer_x, k)   # [k, 768]
-
-    def _pool_text_prompt_slots(self, layer_x):
-        """
-        layer_x: [L, Ncls, 512]
-        prompt slots are at positions 1 : 1+n_ctx
-        returns: [n_ctx, 512]
-        """
-        n_ctx = self.prompt_learner.n_ctx
-        #return layer_x.mean(dim=1)
-        return layer_x[1:1 + n_ctx, :, :].mean(dim=1)
-
-    def _pool_vision_prompt_slots(self, layer_x):
-        """
-        layer_x: [L_with_prompts, B, 768]
-        prompt slots are appended at the tail
-        returns: [n_ctx, 768]
-        """
-        n_ctx = self.prompt_learner.n_ctx
-        #return layer_x.mean(dim=1)
-        return layer_x[-n_ctx:, :, :].mean(dim=1)
-
-    def _cosine_alignment_loss(self, pred, target):
-        pred = F.normalize(pred.float(), dim=-1)
-        target = F.normalize(target.float(), dim=-1)
-        #target +=pred.detach()  # stop gradient on target
-        return 1.0 - (pred * target).sum(dim=-1).mean()
-    
-    def compute_layerwise_same_modality_alignment_loss(
-        self,
-        text_layer_states,
-        vision_layer_states,
-        frozen_text_layer_states,
-        frozen_visual_layer_states,
-    ):
-        loss_text_list = []
-        loss_vision_list = []
-
-        for layer_idx in self.prompt_learner.align_layers:
-            # -------------------------
-            # text-to-text alignment
-            # -------------------------
-            tuned_text_l = self._prepare_text_full_context(text_layer_states[layer_idx])          # [L, Ncls, 512]
-            frozen_text_l = self._prepare_text_full_context(frozen_text_layer_states[layer_idx])  # [L, Ncls, 512]
-            frozen_text_l = frozen_text_l.to(device=tuned_text_l.device, dtype=tuned_text_l.dtype)
-
-            loss_text_l = self._cosine_same_modality_loss(tuned_text_l, frozen_text_l)
-            loss_text_list.append(loss_text_l)
-
-            # -------------------------
-            # vision-to-vision alignment
-            # -------------------------
-            tuned_vis_l = self._prepare_vision_full_context(
-                vision_layer_states[layer_idx], is_frozen=False
-            )                                                                                     # [197, B, 768]
-            frozen_vis_l = self._prepare_vision_full_context(
-                frozen_visual_layer_states[layer_idx], is_frozen=True
-            )                                                                                     # [197, B, 768]
-            frozen_vis_l = frozen_vis_l.to(device=tuned_vis_l.device, dtype=tuned_vis_l.dtype)
-
-            loss_vision_l = self._cosine_same_modality_loss(tuned_vis_l, frozen_vis_l)
-            loss_vision_list.append(loss_vision_l)
-
-        if len(loss_text_list) == 0:
-            zero = torch.zeros((), device=text_layer_states[0].device, dtype=torch.float32)
-            return zero, zero, zero
-
-        loss_text = torch.stack(loss_text_list).mean()
-        loss_vision = torch.stack(loss_vision_list).mean()
-        loss_same_modal =  (loss_text + loss_vision)
-
-        return loss_same_modal, loss_text, loss_vision
-
-    def compute_layerwise_cross_modal_alignment_loss(
-        self,
-        text_layer_states,
-        vision_layer_states,
-        frozen_text_layer_states,
-        frozen_visual_layer_states,
-    ):
-        loss_t2v_list = []
-        loss_v2t_list = []
-
-        for proj_idx, layer_idx in enumerate(self.prompt_learner.align_layers):
-            # tuned text -> frozen vision
-            tuned_text_l = self._pool_text_prompt_slots(text_layer_states[layer_idx])             # [n_ctx, 512]
-            frozen_vis_l = self._pool_vision_prompt_slots(frozen_visual_layer_states[layer_idx])  # [n_ctx, 768]
-            frozen_vis_l = frozen_vis_l.to(device=tuned_text_l.device, dtype=tuned_text_l.dtype)
-
-            pred_vis_l = self.prompt_learner.layer_text_to_vision_mlps[proj_idx](tuned_text_l)
-            loss_t2v_l = self._cosine_alignment_loss(pred_vis_l, frozen_vis_l)
-            loss_t2v_list.append(loss_t2v_l)
-
-            # tuned vision -> frozen text
-            tuned_vis_l = self._pool_vision_prompt_slots(vision_layer_states[layer_idx])          # [n_ctx, 768]
-            frozen_txt_l = self._pool_text_prompt_slots(frozen_text_layer_states[layer_idx])      # [n_ctx, 512]
-            frozen_txt_l = frozen_txt_l.to(device=tuned_vis_l.device, dtype=tuned_vis_l.dtype)
-
-            pred_txt_l = self.prompt_learner.layer_vision_to_text_mlps[proj_idx](tuned_vis_l)
-            loss_v2t_l = self._cosine_alignment_loss(pred_txt_l, frozen_txt_l)
-            loss_v2t_list.append(loss_v2t_l)
-
-        if len(loss_t2v_list) == 0:
-            zero = torch.zeros((), device=text_layer_states[0].device, dtype=torch.float32)
-            return zero, zero, zero
-
-        loss_t2v = torch.stack(loss_t2v_list).mean()
-        loss_v2t = torch.stack(loss_v2t_list).mean()
-        #loss_cm_layer = 0.5 * (loss_t2v + loss_v2t)
-        loss_cm_layer = (loss_t2v + loss_v2t)
-
-        return loss_cm_layer, loss_t2v, loss_v2t    
-
-    def reset_deep_supervision_state(self):
-
-        self.prompt_learner.reset_ds_state()
-        #self.prompt_learner.reset_ds_statetxt()
-        #self.prompt_learner.reset_ds_statevision()
-
-
-    def _norm(self, x, eps=1e-7):
-        return F.normalize(x.float(), dim=-1, eps=eps).type_as(x)
-
-
-    def _pointwise_orthogonal_consistency_loss(
-        self,
-        z,
-        z_fixed,
-        labels=None,
-        point_weight=1.0,
-        orth_weight=0.5,
-        use_abs_orth=True,
-    ):
-        """
-        Point-wise pretrained CLIP consistency + strict orthogonal separation.
-
-        This avoids copying the full frozen CLIP pairwise class-relation matrix.
-
-        Args:
-            z:        tuned features,  [N, D]
-            z_fixed:  frozen features, [N, D]
-            labels:   optional labels.
-                    For text features, keep labels=None.
-                    For image features, provide labels to avoid separating same-class samples.
-            point_weight: weight for point-wise angular consistency.
-            orth_weight:  weight for strict orthogonal separation.
-            use_abs_orth:
-                True  = penalize both positive and negative correlation.
-                False = penalize only positive correlation.
-        """
-
-        z = self._norm(z)
-        z_fixed =  self._norm(z_fixed.detach())
-
-        n = z.shape[0]
-
-        if n <= 1:
-            return z.new_tensor(0.0)
-
-        # --------------------------------------------------
-        # 1. Point-wise angular consistency
-        # --------------------------------------------------
-        cos_pos = torch.sum(z * z_fixed, dim=1)
-        cos_pos = cos_pos.clamp(-1.0 + 1e-7, 1.0 - 1e-7)
-
-        theta = torch.acos(cos_pos)
-        loss_point = theta.pow(2).mean()
-
-        # --------------------------------------------------
-        # 2. Strict orthogonal separation
-        # --------------------------------------------------
-        gram = z @ z.t()
-
-        eye = torch.eye(n, device=z.device, dtype=torch.bool)
-        pair_mask = ~eye
-
-        # For image features, avoid pushing same-class samples apart.
-        if labels is not None:
-            labels = labels.view(-1)
-            diff_class_mask = labels[:, None] != labels[None, :]
-            pair_mask = pair_mask & diff_class_mask
-            return loss_point 
-
-        if pair_mask.sum() == 0:
-            loss_orth = z.new_tensor(0.0)
-        else:
-            off_diag = gram[pair_mask]
-
-            if use_abs_orth:
-                # Strict orthogonality:
-                # for i != j, z_i dot z_j should approach 0.
-                loss_orth = off_diag.pow(2).mean()
-            else:
-                # Only reduce positive similarity.
-                loss_orth = F.relu(off_diag).pow(2).mean()
-
-        loss =  loss_point #+  loss_orth
-
-        return loss  
-
-    def set_dapt_visual_prototypes(self, prototypes: torch.Tensor):
-        """
-        Store dataset-level frozen visual prototypes.
-
-        prototypes:
-            [C, D], where C is number of classes and D is CLIP image feature dimension.
-
-        These prototypes are computed once using the frozen zero-shot CLIP image encoder
-        over the entire training dataset.
-        """
-        if prototypes is None:
-            raise ValueError("DAPT visual prototypes cannot be None.")
-
-        if prototypes.dim() != 2:
-            raise ValueError(
-                f"Expected prototypes with shape [num_classes, dim], got {prototypes.shape}"
-            )
-
-        prototypes = F.normalize(prototypes.float(), dim=-1, eps=1e-7)
-
-        self.dapt_visual_prototypes = prototypes
-
-    def _dapt_visual_intra_loss(
-        self,
-        image_features: torch.Tensor,
-        labels: torch.Tensor,
-        eps: float = 1e-7,
-    ):
-        """
-        DAPT Eq. (13), cosine-similarity form.
-
-        Original Eq. (13):
-            L_intra = sum_c sum_i 1[y_i = c] || z_tilde_i - s_c ||_2^2
-
-        Here:
-            z_tilde_i = tuned/prompted image feature
-            s_c       = frozen zero-shot CLIP visual prototype for class c
-
-        Because both vectors are normalized:
-            ||z - s||_2^2 = 2 - 2*cos(z, s)
-
-        Therefore, this function supports:
-            mode="l2_cos":        mean(2 - 2*cos)
-            mode="one_minus_cos": mean(1 - cos)
-        """
-
-        if self.dapt_visual_prototypes.numel() == 0:
-            raise RuntimeError(
-                "DAPT visual prototypes are empty. "
-                "Call build_dapt_visual_prototypes() in the trainer before training."
-            )
-
-        labels = labels.view(-1).long()
-
-        z = F.normalize(image_features.float(), dim=-1, eps=eps)
-
-        prototypes = self.dapt_visual_prototypes.to(
-            device=z.device,
-            dtype=z.dtype,
-        )
-
-        if labels.max().item() >= prototypes.shape[0]:
-            raise ValueError(
-                f"Label index {labels.max().item()} is outside prototype matrix "
-                f"with {prototypes.shape[0]} classes."
-            )
-
-        target_proto = prototypes[labels]
-        target_proto = F.normalize(target_proto, dim=-1, eps=eps)
-
-        cos = torch.sum(z * target_proto.detach(), dim=1)
-        cos = cos.clamp(-1.0 + eps, 1.0 - eps)
-
-        if self.dapt_intra_mode == "one_minus_cos":
-            loss = (1.0 - cos).mean()
-
-        elif self.dapt_intra_mode == "l2_cos":
-            # Equivalent to squared L2 distance for normalized vectors.
-            loss = (2.0 - 2.0 * cos).mean()
-
-        else:
-            raise ValueError(
-                f"Unknown DAPT_INTRA_MODE={self.dapt_intra_mode}. "
-                "Use 'l2_cos' or 'one_minus_cos'."
-            )
-
-        return loss  
-
-    def _zscore_logits(self, logits, eps=1e-6):
-        logits = logits.float()
-        mean = logits.mean(dim=1, keepdim=True)
-        std = logits.std(dim=1, unbiased=False, keepdim=True)
-        return (logits - mean) / (std + eps)
-
-
-    def _smooth_l1(self, x, beta=0.5):
-        abs_x = x.abs()
-        return torch.where(
-            abs_x < beta,
-            0.5 * x.pow(2) / beta,
-            abs_x - 0.5 * beta,
-        )
-
-
-    def _confidence_gated_logit_margin_loss(
-        self,
-        student_logits,
-        teacher_logits,
-        labels,
-        topk=8,
-        tau_conf=1.0,
-        min_weight=0.05,
-        beta=0.5,
-        eps=1e-6,
-    ):
-        """
-        Confidence-Gated Logit Margin Alignment.
-
-        This aligns logit-space decision margins instead of copying the full
-        frozen CLIP probability distribution.
-
-        student_logits: tuned/prompted logits, [B, C]
-        teacher_logits: frozen zero-shot CLIP logits, [B, C]
-        labels: ground-truth labels, [B]
-        """
-
-        labels = labels.view(-1).long()
-
-        student_logits = student_logits.float()
-        teacher_logits = teacher_logits.detach().float()
-
-        B, C = student_logits.shape
-
-        if C <= 1:
-            return student_logits.new_tensor(0.0)
-
-        # --------------------------------------------------
-        # 1. Per-sample logit normalization
-        # --------------------------------------------------
-        s = self._zscore_logits(student_logits, eps=eps)
-        t = self._zscore_logits(teacher_logits, eps=eps).detach()
-
-        # --------------------------------------------------
-        # 2. Teacher confidence gate
-        # --------------------------------------------------
-        gt_teacher = teacher_logits.gather(1, labels.unsqueeze(1)).squeeze(1)
-
-        gt_mask = torch.zeros_like(teacher_logits, dtype=torch.bool)
-        gt_mask.scatter_(1, labels.unsqueeze(1), True)
-
-        max_neg_teacher = teacher_logits.masked_fill(gt_mask, -1e4).max(dim=1).values
-
-        teacher_margin = gt_teacher - max_neg_teacher
-
-        weight = torch.sigmoid(teacher_margin / tau_conf)
-        weight = min_weight + (1.0 - min_weight) * weight
-        weight = weight.detach()
-
-        # --------------------------------------------------
-        # 3. Select hard classes
-        # --------------------------------------------------
-        k = min(topk, C)
-
-        teacher_topk = teacher_logits.topk(k=k, dim=1).indices
-        student_topk = student_logits.detach().topk(k=k, dim=1).indices
-
-        selected = torch.cat(
-            [
-                labels.unsqueeze(1),
-                teacher_topk,
-                student_topk,
-            ],
-            dim=1,
-        )
-
-        # Remove duplicate issue is not critical; repeated classes only reweight
-        # hard classes slightly. This is acceptable and stable.
-
-        s_sel = s.gather(1, selected)
-        t_sel = t.gather(1, selected)
-
-        # first column is ground-truth because we inserted labels first
-        s_gt = s_sel[:, :1]
-        t_gt = t_sel[:, :1]
-
-        s_margin = s_gt - s_sel
-        t_margin = t_gt - t_sel
-
-        # --------------------------------------------------
-        # 4. Ignore ground-truth-to-ground-truth margin
-        # --------------------------------------------------
-        valid = selected != labels.unsqueeze(1)
-
-        margin_diff = s_margin - t_margin
-
-        loss_all = self._smooth_l1(margin_diff, beta=beta)
-        loss_all = loss_all * valid.float()
-
-        denom = valid.float().sum(dim=1).clamp_min(1.0)
-
-        loss_per_sample = loss_all.sum(dim=1) / denom
-
-        loss = (weight * loss_per_sample).sum() / weight.sum().clamp_min(eps)
-
-        return loss
-
+  
     def forward(self, image, label=None):
         tokenized_prompts = self.tokenized_prompts
         logit_scale = self.logit_scale.exp()
@@ -3974,8 +2912,7 @@ class CustomCLIP(nn.Module):
 
         # Compute the prompted image and text features
                 # prompt learner returns tuned prompts + frozen per-layer references
-        text_input, visual_ctx, cross_prompts_text_deeper, cross_prompts_visual_deeper, \
-        init_cross_prompts_text, init_cross_prompts_visual = self.prompt_learner(image)
+        text_input, visual_ctx, cross_prompts_text_deeper, cross_prompts_visual_deeper = self.prompt_learner(image)
         #text_input, visual_ctx, cross_prompts_text_deeper, cross_prompts_visual_deeper, init_cross_prompts_text, init_cross_prompts_visual = self.prompt_learner(image)
         #text_features, text_layer_states = self.text_encoder(text_input, tokenized_prompts, cross_prompts_text_deeper, init_cross_prompts_text, init_cross_prompts_visual,return_layer_states=True)
         # tuned encoders now return pre/post layer states + frozen roots
@@ -3987,13 +2924,10 @@ class CustomCLIP(nn.Module):
             init_cross_prompts_visual,
             return_layer_states=True,
         )"""
-        text_features, text_pre_states, text_post_states, text_frozen_root = self.text_encoder(
+        text_features = self.text_encoder(
             text_input,
             tokenized_prompts,
             cross_prompts_text_deeper,
-            init_cross_prompts_text,
-            init_cross_prompts_visual,
-            return_layer_states=True,
         )
         """text_features, text_pre_states, text_post_states, text_frozen_root = self.text_encoder(
             text_input,
@@ -4016,13 +2950,10 @@ class CustomCLIP(nn.Module):
             init_cross_prompts_text,
             return_layer_states=True,
         )"""
-        image_features, vision_pre_states, vision_post_states, vision_frozen_root = self.image_encoder(
+        image_features = self.image_encoder(
             image.type(self.dtype),
             visual_ctx,
             cross_prompts_visual_deeper,
-            init_cross_prompts_visual,
-            init_cross_prompts_text,
-            return_layer_states=True,
         )
         """image_features, vision_pre_states, vision_post_states, vision_frozen_root = self.image_encoder(
             image.type(self.dtype),
@@ -4046,7 +2977,7 @@ class CustomCLIP(nn.Module):
         # prompted logits
         logits = logit_scale * image_features @ text_features.t()
 
-        with torch.no_grad():
+        """with torch.no_grad():
             fixed_image = image_features_fixed #F.normalize(image_features_fixed.float(), dim=-1, eps=1e-7)
 
             fixed_text = self.prompt_learner.fixed_embeddings.to(
@@ -4055,33 +2986,24 @@ class CustomCLIP(nn.Module):
             )
             fixed_text = F.normalize(fixed_text.float(), dim=-1, eps=1e-7)
 
-            teacher_logits = logit_scale.detach().float() * fixed_image @ fixed_text.t()
+            teacher_logits = logit_scale.detach().float() * fixed_image @ fixed_text.t()"""
 
         if self.prompt_learner.training:
             loss_cls = F.cross_entropy(logits, label)
 
-            loss_logit_margin = self._confidence_gated_logit_margin_loss(
-                student_logits=logits,
-                teacher_logits=teacher_logits,
-                labels=label,
-                topk=8,
-                tau_conf=1.0,
-                min_weight=0.05,
-                beta=0.5,
-            )
             # ---------------------------------------------------------
             # DAPT Eq. (13): visual intra-dispersion loss
             # Dataset-level prototype version
             # ---------------------------------------------------------
-            if self.dapt_intra_enable:
+            """if self.dapt_intra_enable:
                 loss_dapt_intra = self._dapt_visual_intra_loss(
                     image_features=image_features,
                     labels=label,
                 )
             else:
-                loss_dapt_intra = logits.new_tensor(0.0)
+                loss_dapt_intra = logits.new_tensor(0.0)"""
             text_features_fixed = self.prompt_learner.fixed_embeddings
-            cos = torch.nn.CosineSimilarity(dim=1, eps=1e-07)
+            """cos = torch.nn.CosineSimilarity(dim=1, eps=1e-07)
             score = cos(text_features, text_features_fixed)
             loss_distill_text = 1.0 - torch.mean(score)
             #arcos implementation for better numerical stability
@@ -4093,23 +3015,23 @@ class CustomCLIP(nn.Module):
             loss_distill_image_arcos = score_img.pow(2).mean()
             loss_distill_image = 1.0 - torch.mean(score)
             loss_distill = loss_distill_text + loss_distill_image
-            loss_distill_arcos = loss_distill_text_arcos + loss_distill_image_arcos
-            loss_arcmc, arcmc_logs = self.arcmc_loss(
+            loss_distill_arcos = loss_distill_text_arcos + loss_distill_image_arcos"""
+            """loss_arcmc, arcmc_logs = self.arcmc_loss(
                 text_features=text_features,
                 image_features=image_features,
                 fixed_text_features=self.prompt_learner.fixed_embeddings,
                 fixed_image_features=image_features_fixed,
                 labels=label,
-            )
+            )"""
             #-----------------------------------------------------------------
             #contrastive feature distillation loss between tuned features and frozen CLIP features
-            loss_distill_contrastive, distill_logs = self.contrastive_distill_loss(
+            """loss_distill_contrastive, distill_logs = self.contrastive_distill_loss(
                 text_features=text_features,
                 image_features=image_features,
                 fixed_text_features=self.prompt_learner.fixed_embeddings,
                 fixed_image_features=image_features_fixed,
                 labels=label,
-            )
+            )"""
 
             # ---------------------------------------------------------
             # Point-wise Orthogonal Consistency Loss
@@ -4121,7 +3043,7 @@ class CustomCLIP(nn.Module):
                 image_features_fixed=image_features_fixed,
                 labels=label,
             )
-            if self.poc_enable:
+            """if self.poc_enable:
                 loss_poc_text = self._pointwise_orthogonal_consistency_loss(
                     z=text_features,
                     z_fixed=self.prompt_learner.fixed_embeddings,
@@ -4140,14 +3062,14 @@ class CustomCLIP(nn.Module):
                     use_abs_orth=True,
                 )
 
-                loss_poc = loss_poc_text + loss_poc_image
+                loss_poc = loss_poc_text + loss_poc_image"""
             #else:
             #    loss_poc = logits.new_tensor(0.0)
 
             # ---------------------------------------------------------
             # New class-normalized orthogonal probe distillation loss
             # ---------------------------------------------------------
-            if self.probe_enable:
+            """if self.probe_enable:
                 loss_probe, probe_logs = self.prompt_learner.probe_loss(
                     text_features=text_features,
                     image_features=image_features,
@@ -4156,7 +3078,7 @@ class CustomCLIP(nn.Module):
                     labels=label,
                 )
                 loss = loss_cls + self.probe_lambda * loss_probe + 6.0 * loss_popc_new #4.0 * loss_popc_new
-                return loss, logits
+                return loss, logits"""
             #------------
             # new layerwise cross-modal cosine alignment
             """loss_cm_layer, loss_t2v, loss_v2t = self.compute_layerwise_cross_modal_alignment_loss(
@@ -4190,7 +3112,7 @@ class CustomCLIP(nn.Module):
                 frozen_visual_pre_states=frozen_visual_pre_states,
             )"""
             #print("training logit test:", logits)
-            return loss_cls + self.probe_lambda * loss_popc_new, logits #+ self.probe_lambda * loss_popc_new, logits  # + self.lambd * loss_distill,logits self.ad_lambda * loss_ad_layer
+            return loss_cls, logits #+ self.probe_lambda * loss_popc_new #+ self.probe_lambda * loss_popc_new, logits  # + self.lambd * loss_distill,logits self.ad_lambda * loss_ad_layer
                 # Important: do not let prompt-level TRM state leak across test batches
         if (label is None) and hasattr(self, "reset_deep_supervision_state"):
             self.reset_deep_supervision_state()
@@ -4434,6 +3356,82 @@ class HiCroPLReason(TrainerX):
         if device_count > 1:
             print(f"Multiple GPUs detected (n_gpus={device_count}), use all of them!")
             self.model = nn.DataParallel(self.model)
+    
+    @torch.no_grad()
+    def profile_test_gflops(self):
+        """
+        Profile one complete inference forward pass.
+
+        Protocol:
+            batch size: 1
+            image size: cfg.INPUT.SIZE
+            label: None, so CustomCLIP uses its evaluation path
+
+        Returns:
+            Dictionary containing test GFLOPs and profiling metadata.
+        """
+        try:
+            from fvcore.nn import FlopCountAnalysis
+        except ImportError as exc:
+            raise ImportError(
+                "GFLOPs profiling requires fvcore. "
+                "Install it using: pip install fvcore"
+            ) from exc
+
+        # DataParallel itself should not be passed to the JIT-based profiler.
+        model = (
+            self.model.module
+            if isinstance(self.model, nn.DataParallel)
+            else self.model
+        )
+
+        was_training = model.training
+        model.eval()
+
+        input_size = self.cfg.INPUT.SIZE
+
+        if isinstance(input_size, (list, tuple)):
+            if len(input_size) == 1:
+                height = width = int(input_size[0])
+            else:
+                height = int(input_size[0])
+                width = int(input_size[1])
+        else:
+            height = width = int(input_size)
+
+        # Table-style model-complexity reporting should use batch size 1.
+        dummy_image = torch.randn(
+            1,
+            3,
+            height,
+            width,
+            device=self.device,
+            dtype=torch.float32,
+        )
+
+        try:
+            # CustomCLIP.forward(dummy_image) executes the test path
+            # because label defaults to None.
+            analysis = FlopCountAnalysis(model, (dummy_image,))
+
+            total_flops = float(analysis.total())
+            unsupported_ops = dict(analysis.unsupported_ops())
+
+            gflops_test = total_flops / 1e9
+
+            return {
+                "gflops_test": gflops_test,
+                "batch_size": 1,
+                "height": height,
+                "width": width,
+                "num_classes": len(self.dm.dataset.classnames),
+                "unsupported_ops": unsupported_ops,
+            }
+
+        finally:
+            if was_training:
+                model.train()
+
 
     def forward_backward(self, batch):
         image, label = self.parse_batch_train(batch)
@@ -4520,8 +3518,8 @@ class HiCroPLReason(TrainerX):
         else:
             loss,logits = model(image, label)
             #print("loss", loss, "logits shape", logits.shape)
-            explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
-            explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
+            #explicit_all = REGULARIZER_REGISTRY.get("margin_mean_var_allclass_loss_explicit")
+            #explicit_all_loss =explicit_all(logits,label,variance_mode="all_pairs")
             #loss= loss + explicit_all_loss
             optim.zero_grad()
             loss.backward()
