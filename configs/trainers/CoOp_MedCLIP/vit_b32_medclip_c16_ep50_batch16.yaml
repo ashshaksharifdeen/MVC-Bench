@@ -31,7 +31,7 @@ MODEL:
 TRAINER:
   COOP:
     LOSS:
-      ENABLED_LOSSES: ['LOGITNORM']
+      ENABLED_LOSSES: ['CE','MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT']
       CE:
         WEIGHT: 1.0
       DCA:
@@ -62,3 +62,5 @@ TRAINER:
       LOGITNORM:
         WEIGHT: 1.0                  # Overall weight in loss combination
         TEMPERATURE: 1.0             # Temperature parameter (t)
+      MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT:
+        WEIGHT: 1.0    

@@ -1,24 +1,3 @@
-"""
-Goal
----
-1. Read test results from log.txt files
-2. Compute mean and std (or 95% CI) across seed folders
-3. (NEW) Consolidate averages for ALL metrics across ALL datasets into ONE file
-
-Usage
----
-Single directory (backward compatible):
-$ python parse_test_res.py output/my_experiment --test-log --keyword accuracy
-
-Multiple metrics + deep scan + one consolidated CSV (recommended):
-$ python parse_test_res.py /storagepool/Ashshak/output2/all \
-    --scan-deep --test-log \
-    --keywords accuracy,confidence,ece,mce,ace,ece_kde \
-    --path-filter "shots_8/CoOp/vit_b32_plip_c16_ep50_batch16" \
-    --ci95 \
-    --consolidate-file /storagepool/Ashshak/output2/summaries/CoOp_vit_b32_plip_c16_ep50_batch16_shots8.csv \
-    --wide --save-mode overwrite
-"""
 import re
 import argparse
 import json
@@ -38,42 +17,76 @@ def compute_ci95(res):
     if n <= 1:
         return 0.0
     s = np.std(res, ddof=1)
-    # t* (two-sided, 95%) for very small n; else ~1.96
     t_map = {2: 12.706, 3: 4.303, 4: 3.182, 5: 2.776}
     t_star = t_map.get(n, 1.96)
-    return t_star * s / np.sqrt(n)
+    return float(t_star * s / np.sqrt(n))
 
 
-def results_to_csv(args, directory, key, results):
-    """Original CSV writers (kept for backward compat)."""
+def _safe_append(csv_path: str, row_df: pd.DataFrame, col_order=None):
+    """Append row_df to csv_path, creating file if needed; upgrade missing cols safely."""
+    os.makedirs(osp.dirname(csv_path), exist_ok=True)
+    if osp.exists(csv_path):
+        old = pd.read_csv(csv_path)
+        # add missing columns on both sides
+        for c in row_df.columns:
+            if c not in old.columns:
+                old[c] = np.nan
+        for c in old.columns:
+            if c not in row_df.columns:
+                row_df[c] = np.nan
+        out = pd.concat([old, row_df], ignore_index=True)
+        if col_order:
+            rest = [c for c in out.columns if c not in col_order]
+            out = out[col_order] + out[rest]
+        out.to_csv(csv_path, index=False)
+    else:
+        if col_order:
+            rest = [c for c in row_df.columns if c not in col_order]
+            row_df = row_df[col_order] + row_df[rest]
+        row_df.to_csv(csv_path, index=False)
+
+
+def results_to_csv(args, directory, key, mean_value: float, std_value: float):
+    """Dispatch CSV writer for legacy per-run logs (can be disabled)."""
+    if args.disable_per_run_csv:
+        return
     if 'train_base' in directory or 'test_new' in directory:
-        base2new_results_to_csv(args, directory, key, results)
+        base2new_results_to_csv(args, directory, key, mean_value, std_value)
     elif 'xd_test' in directory or 'xd_train' in directory:
-        xd_results_to_csv(args, directory, key, results)
+        xd_results_to_csv(args, directory, key, mean_value, std_value)
+    else:
+        generic_results_to_csv(args, directory, key, mean_value, std_value)
 
 
-def base2new_results_to_csv(args, directory, key, results):
+def _augment_algorithm_name_with_calibration(algorithm: str, args) -> str:
+    """Reproduce your calibration suffix logic safely."""
+    if not getattr(args, "calibration_config", ""):
+        return algorithm
+    try:
+        calibration_cfgs = json.loads(args.calibration_config)
+        if calibration_cfgs.get('BASE_CALIBRATION_MODE'):
+            if calibration_cfgs.get('SCALING_CONFIG'):
+                algorithm += f"+{calibration_cfgs.get('SCALING_CALIBRATOR_NAME','')}"
+            if calibration_cfgs.get('BIN_CALIBRATOR_NAME'):
+                algorithm += f"+{calibration_cfgs['BIN_CALIBRATOR_NAME']}"
+        if calibration_cfgs.get('IF_DAC'):
+            algorithm += '+DAC'
+        if calibration_cfgs.get('IF_PROCAL'):
+            algorithm += '+ProCal'
+    except Exception:
+        pass
+    return algorithm
+
+
+def base2new_results_to_csv(args, directory, key, mean_value: float, std_value: float):
     parts = directory.split("/")
+    # .../<split>/<dataset>/shots_K/<algorithm>/<cfgs>/seedX/log.txt
     split = parts[2]
     dataset = parts[3]
     shot = int(parts[4].split("_")[1])
     algorithm = parts[5]
     cfgs = parts[6]
-
-    if args.calibration_config:
-        try:
-            calibration_cfgs = json.loads(args.calibration_config)
-            if calibration_cfgs.get('BASE_CALIBRATION_MODE'):
-                if calibration_cfgs.get('SCALING_CONFIG'):
-                    algorithm += f"+{calibration_cfgs.get('SCALING_CALIBRATOR_NAME','')}"
-                if calibration_cfgs.get('BIN_CALIBRATOR_NAME'):
-                    algorithm += f"+{calibration_cfgs['BIN_CALIBRATOR_NAME']}"
-            if calibration_cfgs.get('IF_DAC'):
-                algorithm += '+DAC'
-            if calibration_cfgs.get('IF_PROCAL'):
-                algorithm += '+ProCal'
-        except Exception:
-            pass
+    algorithm = _augment_algorithm_name_with_calibration(algorithm, args)
 
     df = pd.DataFrame({
         "dataset": [dataset],
@@ -82,25 +95,23 @@ def base2new_results_to_csv(args, directory, key, results):
         "algorithm": [algorithm],
         "cfgs": [cfgs],
         "metrics": [key],
-        "results": [results]
+        "results_mean": [float(mean_value)],
+        "results_std": [float(std_value)],
     })
 
     csv_file = "output/base2new/logs_base2new.csv"
-    os.makedirs(osp.dirname(csv_file), exist_ok=True)
-    if osp.exists(csv_file):
-        pd.concat([pd.read_csv(csv_file), df], ignore_index=True).to_csv(csv_file, index=False)
-    else:
-        df.to_csv(csv_file, index=False)
+    desired_order = ["dataset", "split", "shot", "algorithm", "cfgs", "metrics", "results_mean", "results_std"]
+    _safe_append(csv_file, df, col_order=desired_order)
 
 
-def xd_results_to_csv(args, directory, key, results):
+def xd_results_to_csv(args, directory, key, mean_value: float, std_value: float):
     parts = directory.split("/")
+    # .../<split>/<algorithm>/<cfgs>/<dataset>/seedX/log.txt
     split = parts[2]
     algorithm = parts[3]
     cfgs = parts[4]
     dataset = parts[5]
 
-    # Optional arg; keep safe
     calib_label = getattr(args, "calibration", "")
     if calib_label:
         algorithm = algorithm + '+' + calib_label
@@ -111,15 +122,25 @@ def xd_results_to_csv(args, directory, key, results):
         "algorithm": [algorithm],
         "cfgs": [cfgs],
         "metrics": [key],
-        "results": [results]
+        "results_mean": [float(mean_value)],
+        "results_std": [float(std_value)],
     })
 
     csv_file = "output/xd/logs_xd.csv"
-    os.makedirs(osp.dirname(csv_file), exist_ok=True)
-    if osp.exists(csv_file):
-        pd.concat([pd.read_csv(csv_file), df], ignore_index=True).to_csv(csv_file, index=False)
-    else:
-        df.to_csv(csv_file, index=False)
+    desired_order = ["dataset", "split", "algorithm", "cfgs", "metrics", "results_mean", "results_std"]
+    _safe_append(csv_file, df, col_order=desired_order)
+
+
+def generic_results_to_csv(args, directory, key, mean_value: float, std_value: float):
+    df = pd.DataFrame({
+        "directory": [directory],
+        "metrics": [key],
+        "results_mean": [float(mean_value)],
+        "results_std": [float(std_value)]
+    })
+    csv_file = "output/logs_generic.csv"
+    desired_order = ["directory", "metrics", "results_mean", "results_std"]
+    _safe_append(csv_file, df, col_order=desired_order)
 
 
 def _build_metrics_from_args(args):
@@ -128,6 +149,7 @@ def _build_metrics_from_args(args):
         ks = [k.strip() for k in args.keywords.split(",") if k.strip()]
     else:
         ks = [args.keyword]
+    # pattern like: "* accuracy: 82.34%"
     return [{"name": k, "regex": re.compile(rf"\* {re.escape(k)}: ([\.\deE+-]+)%")} for k in ks]
 
 
@@ -156,7 +178,7 @@ def _find_result_dirs(root, path_filter_regex=None):
 
 
 def _parse_path_meta(directory):
-    """Extract dataset/shot/algorithm/cfgs from known layouts."""
+    """Extract dataset/shot/algorithm/cfgs from common layouts."""
     parts = directory.strip("/").split("/")
     meta = {"split": "", "dataset": "", "shot": None, "algorithm": "", "cfgs": ""}
     # base2new-like
@@ -180,6 +202,18 @@ def _parse_path_meta(directory):
     return meta
 
 
+def _interleave_mean_std(mean_piv: pd.DataFrame, std_piv: pd.DataFrame):
+    """Return a dataframe with columns interleaved as metric, metric_std."""
+    # preserve metric order by appearance in mean_piv columns
+    metrics = list(mean_piv.columns)
+    interleaved = pd.DataFrame(index=mean_piv.index)
+    for m in metrics:
+        interleaved[m] = mean_piv[m]
+        # std_piv may lack a column if std couldn't be computed (n==1); handle gracefully
+        interleaved[f"{m}_std"] = std_piv[m] if m in std_piv.columns else np.nan
+    return interleaved
+
+
 def _save_consolidated(rows, path, mode, wide=False):
     if not path:
         return
@@ -187,29 +221,34 @@ def _save_consolidated(rows, path, mode, wide=False):
     ext = osp.splitext(path)[1].lower()
     df = pd.DataFrame(rows)
 
-    if wide:
+    if wide and not df.empty:
         index_cols = ["dataset", "shot", "algorithm", "cfgs"]
         have = [c for c in index_cols if c in df.columns]
-        if not df.empty:
-            df = df.pivot_table(index=have, columns="metric", values="mean", aggfunc="first").reset_index()
+        # build mean and std pivot tables
+        mean_piv = df.pivot_table(index=have, columns="metric", values="mean", aggfunc="first")
+        std_piv = df.pivot_table(index=have, columns="metric", values="std", aggfunc="first")
+        wide_df = _interleave_mean_std(mean_piv, std_piv).reset_index()
+        out_df = wide_df
+    else:
+        out_df = df
 
     if ext == ".csv":
-        df.to_csv(path, index=False)
+        out_df.to_csv(path, index=False)
     elif ext == ".json":
         with open(path, "w" if mode == "overwrite" else "a") as f:
-            for _, r in df.iterrows():
+            for _, r in out_df.iterrows():
                 f.write(json.dumps(r.to_dict()) + "\n")
     else:
         with open(path, "w" if mode == "overwrite" else "a") as f:
             if wide and not df.empty:
-                f.write("\t".join(df.columns) + "\n")
-                for _, r in df.iterrows():
-                    f.write("\t".join(str(r[c]) for c in df.columns) + "\n")
+                f.write("\t".join(out_df.columns) + "\n")
+                for _, r in out_df.iterrows():
+                    f.write("\t".join(str(r[c]) for c in out_df.columns) + "\n")
             else:
                 for r in rows:
                     f.write(
                         f"{r['dataset']}\tshot={r.get('shot','')}\talg={r.get('algorithm','')}\t"
-                        f"cfg={r.get('cfgs','')}\tmetric={r['metric']}\tmean={r['mean']:.6f}\t"
+                        f"cfg={r.get('cfgs','')}\tmetric={r['metric']}\tmean={r['mean']:.6f}\tstd={r['std']:.6f}\t"
                         f"{r['dispersion_type']}={r['dispersion']:.6f}\tn={r['n']}\tpath={r['directory']}\n"
                     )
 
@@ -257,7 +296,7 @@ def parse_function(*metrics, directory="", args=None, end_signal=None):
             for line in lines:
                 line = line.strip()
 
-                # Be flexible on the gate line
+                # Gate line
                 if end_signal and (end_signal in line):
                     good_to_go = True
 
@@ -297,15 +336,17 @@ def parse_function(*metrics, directory="", args=None, end_signal=None):
     print(f"Summary of directory: {directory}")
     for key, values in metrics_results.items():
         n = len(values)
-        base_std = np.std(values, ddof=1) if n > 1 else 0.0
+        base_std = float(np.std(values, ddof=1)) if n > 1 else 0.0
         avg = float(np.mean(values))
         disp = compute_ci95(values) if args.ci95 else base_std
-        print(f"* {key}: {avg:.2f}% +- {disp:.2f}%")
+        print(f"* {key}: {avg:.2f}% +- {disp:.2f}% (std={base_std:.2f}%)")
         output_results[key] = avg
-        results_to_csv(args, directory, key, f"{avg:.2f}")
+        # per-run csvs (optional)
+        results_to_csv(args, directory, key, avg, base_std)
         summary_rows.append({
             "metric": key,
             "mean": avg,
+            "std": base_std,
             "dispersion": float(disp),
             "n": n
         })
@@ -317,12 +358,12 @@ def parse_function(*metrics, directory="", args=None, end_signal=None):
 def main(args, end_signal):
     metrics = _build_metrics_from_args(args)
 
-    # Single-directory (original behavior)
+    # Single-directory parse
     if not args.scan_deep:
         parse_function(*metrics, directory=args.directory, args=args, end_signal=end_signal)
         return
 
-    # Consolidated mode
+    # Consolidated parse
     path_filter_regex = args.path_filter if args.path_filter else None
     result_dirs = _find_result_dirs(args.directory, path_filter_regex)
 
@@ -344,6 +385,7 @@ def main(args, end_signal):
                 "cfgs": meta.get("cfgs", ""),
                 "metric": r["metric"],
                 "mean": r["mean"],
+                "std": r["std"],
                 "dispersion": r["dispersion"],
                 "dispersion_type": "ci95" if args.ci95 else "std",
                 "n": r["n"],
@@ -360,7 +402,8 @@ def main(args, end_signal):
         for ds, items in by_ds.items():
             print(f"\n## {ds}")
             for it in items:
-                print(f"{it['metric']}: {it['mean']:.2f} ({it['dispersion_type']} {it['dispersion']:.2f}, n={it['n']})")
+                print(f"{it['metric']}: {it['mean']:.2f} "
+                      f"(std {it['std']:.2f}, {it['dispersion_type']} {it['dispersion']:.2f}, n={it['n']})")
 
 
 if __name__ == "__main__":
@@ -374,19 +417,20 @@ if __name__ == "__main__":
     parser.add_argument("--calibration-config", default="", type=str, help="JSON string for calibration flags")
     parser.add_argument("--calibration", default="", type=str, help="optional label for xd runs")
 
-    # NEW consolidated options
+    # Consolidation / output controls
     parser.add_argument("--scan-deep", action="store_true",
                         help="recursively scan `directory` to find result dirs (contain seed*/log*.txt)")
     parser.add_argument("--path-filter", type=str, default="",
                         help="regex to filter result directories by full path (used with --scan-deep)")
     parser.add_argument("--consolidate-file", type=str, default="",
-                        help="write one consolidated file (csv|json|txt) with averages across datasets/metrics")
+                        help="write one consolidated file (csv|json|txt)")
     parser.add_argument("--save-mode", choices=["append", "overwrite"], default="overwrite",
                         help="append to or overwrite the consolidate file")
     parser.add_argument("--wide", action="store_true",
-                        help="save a wide table: one row per dataset (and config), columns are metrics")
+                        help="**wide table**: interleaved columns {metric}, {metric}_std")
+    parser.add_argument("--disable-per-run-csv", action="store_true",
+                        help="disable legacy per-run CSV writers, only produce --consolidate-file")
 
     args = parser.parse_args()
-
     end_signal = "=> result" if args.test_log else "Finished training"
     main(args, end_signal)

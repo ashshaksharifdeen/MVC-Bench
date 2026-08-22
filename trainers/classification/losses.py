@@ -545,3 +545,197 @@ def text_moment_matching_loss(logits, label, **kwargs):
     cov_cost = (cov_t - cov_f).pow(2).sum()
     
     return mean_cost + cov_cost
+
+@LossRegistry.register("MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT")
+def margin_mean_var_allclass_loss_explicit(logits, label, **kwargs):
+    """
+    Explicit pairwise implementation:
+      m_{i,k} = z[i,y_i] - z[i,k] for k != y_i
+      mbar_i  = mean_k m_{i,k}
+      mu      = mean_i mbar_i
+      var: 'per_sample' or 'all_pairs'
+    """
+    alpha = float(kwargs.get("alpha", 0.1))
+    beta  = float(kwargs.get("beta", 0.01))
+    variance_mode = kwargs.get("variance_mode", "per_sample")
+
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes.")
+
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # (B,1)
+    z_true = logits[idx, label].unsqueeze(1)
+
+    # Collect other-class logits into (B, C-1)
+    mask = torch.ones_like(logits, dtype=torch.bool)
+    mask[idx, label] = False
+    others = logits[mask].view(B, C - 1)  # (B, C-1)
+
+    # Pairwise margins and per-sample average
+    margins = z_true - others             # (B, C-1)
+    mbar = margins.mean(dim=1)            # (B,)
+    mu = mbar.mean()
+
+    # Variance term
+    if variance_mode == "per_sample":
+        var_term = mbar.var(unbiased=False)
+    elif variance_mode == "all_pairs":
+        Em2 = margins.pow(2).mean()  # average over all (i,k!=y)
+        var_term = Em2 - mu**2
+    else:
+        raise ValueError("variance_mode must be 'per_sample' or 'all_pairs'.")
+
+    return -alpha * mu + beta * var_term
+
+
+@LossRegistry.register("EMBEDING_LOSS")
+def embedding_loss(text_features):
+        
+    tuned = text_features.T
+    embeding_mean = tuned.mean(0)
+    embeding_distance = tuned - embeding_mean
+    embeding_distance_norm = torch.linalg.norm(embeding_distance,dim=-1)
+    embeding_distance_mean = embeding_distance_norm.mean()
+
+    return embeding_distance_mean
+
+@LossRegistry.register("MARGIN_MEAN_VAR_ALLCLASS_CB")
+def margin_mean_var_allclass_cb(logits, labels, **kwargs):
+    """
+    Class-Balanced Margin Mean–Variance Loss (true vs ALL other classes).
+
+    R_cb = -alpha * mu_cb + beta * var_cb
+      where mu_cb and var_cb are computed with class-balanced weights.
+
+    kwargs:
+      alpha (float): weight for mean term (default 0.1)
+      beta  (float): weight for variance term (default 0.01)
+      variance_mode (str): 'all_pairs' (default) or 'per_sample'
+      clamp_var_min (float): clamp lower bound for variance (default 0.0)
+    """
+    alpha = float(kwargs.get("alpha", 0.1))
+    beta  = float(kwargs.get("beta", 0.01))
+    variance_mode = kwargs.get("variance_mode", "all_pairs")
+    clamp_var_min = float(kwargs.get("clamp_var_min", 0.0))
+
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes for pairwise margins.")
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # True-class score and aggregates
+    z_true = logits[idx, labels]                   # (B,)
+    sum_all = logits.sum(dim=1)                    # (B,)
+    sum_sq_all = (logits**2).sum(dim=1)            # (B,)
+
+    others_sum = sum_all - z_true                  # (B,)
+    others_sum_sq = sum_sq_all - z_true**2         # (B,)
+    denom = (C - 1)
+
+    # Per-sample average margin: mbar_i
+    mbar = z_true - others_sum / denom             # (B,)
+
+    # Per-sample all-pairs second moment: E_k[m_{i,k}^2]
+    Em2_per_sample = ((denom * z_true**2)
+                      - 2 * z_true * others_sum
+                      + others_sum_sq) / denom     # (B,)
+
+    # ----- Class-balanced weights -----
+    # Count per class in the batch (ensure minlength=C)
+    n_per_class = torch.bincount(labels, minlength=C).clamp_min(1)  # (C,)
+    # Raw inverse-frequency per-sample weights
+    w_raw = (1.0 / n_per_class[labels]).to(logits.dtype)            # (B,)
+    # Normalize so sum_i w_i = 1
+    w = w_raw / w_raw.sum()
+
+    # Weighted mean
+    mu_cb = (w * mbar).sum()
+
+    # Weighted variance
+    if variance_mode == "all_pairs":
+        Em2_cb = (w * Em2_per_sample).sum()
+        var_cb = Em2_cb - mu_cb**2
+    elif variance_mode == "per_sample":
+        var_cb = (w * (mbar - mu_cb)**2).sum()
+    else:
+        raise ValueError("variance_mode must be 'all_pairs' or 'per_sample'")
+
+    var_cb = torch.clamp(var_cb, min=clamp_var_min)  # numeric safety if desired
+
+    # Final regularizer
+    return -alpha * mu_cb + beta * var_cb
+
+@LossRegistry.register("MARGIN_MEAN_VAR_PER_SAMPLE")
+def margin_mean_var_per_sample(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    alpha: float = 0.1,
+    beta: float = 0.01,
+    clamp_var_min: float = 0.0,
+    reduction: str = "mean",  # "mean" | "sum" | "none"
+):
+    """
+    Per-sample margin mean–variance loss (no batch statistics, no hinge).
+      L_i = -alpha * mbar_i + beta * var_i
+    where mbar_i and var_i are computed across the C-1 negatives of sample i.
+
+    Args:
+      logits: (B, C)
+      labels: (B,)
+      alpha, beta: weights for mean and variance terms
+      clamp_var_min: numeric floor for per-sample variance (e.g., 0.0)
+      reduction: "mean" (default), "sum", or "none" (return per-sample vector)
+
+    Returns:
+      loss (scalar if reduced, else (B,)), and a dict of diagnostics.
+    """
+    B, C = logits.shape
+    if C < 2:
+        raise ValueError("Need at least 2 classes.")
+
+    device = logits.device
+    idx = torch.arange(B, device=device)
+
+    # True-class logit
+    z_true = logits[idx, labels]              # (B,)
+
+    # Aggregates over all classes (avoid building big masks)
+    sum_all    = logits.sum(dim=1)            # (B,)
+    sum_sq_all = (logits**2).sum(dim=1)       # (B,)
+    others_sum    = sum_all - z_true          # (B,)
+    others_sum_sq = sum_sq_all - z_true**2    # (B,)
+    denom = (C - 1)
+
+    # Per-sample mean margin across negatives: mbar_i
+    mbar = z_true - others_sum / denom        # (B,)
+
+    # Per-sample second moment E_k[m_{i,k}^2] (closed form)
+    Em2 = ((denom * z_true**2)
+           - 2 * z_true * others_sum
+           + others_sum_sq) / denom           # (B,)
+
+    # Per-sample variance across negatives
+    var_i = torch.clamp(Em2 - mbar**2, min=clamp_var_min)   # (B,)
+
+    # Per-sample objective
+    loss_i = -alpha * mbar + beta * var_i                   # (B,)
+
+    if reduction == "mean":
+        loss = loss_i.mean()
+    elif reduction == "sum":
+        loss = loss_i.sum()
+    elif reduction == "none":
+        loss = loss_i
+    else:
+        raise ValueError("reduction must be 'mean', 'sum', or 'none'")
+
+    logs = {
+        "mean_mbar": mbar.mean().detach(),
+        "mean_var": var_i.mean().detach(),
+        "mean_Em2": Em2.mean().detach(),
+    }
+    return loss, logs

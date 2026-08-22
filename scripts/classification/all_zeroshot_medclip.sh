@@ -19,10 +19,10 @@ if [ -n "$CALIBRATION_CFG" ]; then
     CALIB_ARG="--calibration-config \"${CALIBRATION_CFG}\""
     # Include calibration config in output directory
     CALIB_DIR=$(basename "$CALIBRATION_CFG" .yaml)
-    DIR=output/all_zeroshot/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/calib_${CALIB_DIR}/seed${SEED}
+    DIR=/storagepool/Ashshak/output_zero/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/calib_${CALIB_DIR}/seed${SEED}
 else
     CALIB_ARG=""
-    DIR=output/all_zeroshot/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
+    DIR=/storagepool/Ashshak/output_zero/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/seed${SEED}
 fi
 
 mkdir -p ${DIR}
@@ -39,7 +39,7 @@ ${CALIB_ARG} \
 --eval-only \
 DATASET.NUM_SHOTS ${SHOTS} \
 MODEL.NAME "medclip" \
-MODEL_ROOT "/home/abhishek/desktop/VLM_Cal/CalibPrompt/models" \
+MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
 DATALOADER.TRAIN_X.BATCH_SIZE 16 \
 DATALOADER.TEST.BATCH_SIZE 100 \
 DATALOADER.NUM_WORKERS 8

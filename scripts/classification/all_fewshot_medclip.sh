@@ -10,6 +10,7 @@ DATA=$4
 SHOTS=$5
 SUB=all
 SEED=$6
+CAL_BINS="${7:-20}"
 # Extract loss information from config file
 LOSS_DIR=$(python -c "
 import yaml
@@ -31,7 +32,8 @@ python train.py \
  DATASET.NUM_SHOTS ${SHOTS} \
  DATASET.SUBSAMPLE_CLASSES ${SUB} \
  MODEL.NAME "medclip" \
- MODEL_ROOT "/home/ashashak/CalibPrompt/models"
+ MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
+ CALIBRATION.METRICS.ECE_BINS ${CAL_BINS}
 else
 echo "Run this job and save the output to ${DIR}"
 python train.py \
@@ -44,5 +46,6 @@ python train.py \
  DATASET.NUM_SHOTS ${SHOTS} \
  DATASET.SUBSAMPLE_CLASSES ${SUB} \
  MODEL.NAME "medclip" \
- MODEL_ROOT "/home/ashashak/CalibPrompt/models"
+ MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
+ CALIBRATION.METRICS.ECE_BINS ${CAL_BINS}
 fi

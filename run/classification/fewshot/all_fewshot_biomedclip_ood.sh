@@ -4,21 +4,21 @@ set -Eeuo pipefail
 ############################################
 # GPU
 ############################################
-GPU_ID="${1:-2}"
+GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 
 ############################################
 # DATA & EXP CONFIG
 ############################################
-DATA_DIR="/storagepool/Ashshak/DR"
-train_dataset=messidor
-new_class_datasets=(aptos eyepacs messidor_2)
+DATA_DIR="/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA" #"/storagepool/Ashshak/DR" #"/l/Ashshak/DATA" 
+train_dataset=rsna18 #messidor
+new_class_datasets=(covid) #(aptos eyepacs messidor_2)
 seeds=(1 2 3)
 SHOTS=16
 
 # Model / Trainer
-BACKBONE="vit_b32_medclip"
-TRAINERS=('CoOp')
+BACKBONE="vit_b32_biomedclip"
+TRAINERS=('CoOp_BioMedCLIP')
 
 # Metrics (must match lines like: "* metric: 12.34%")
 KEYWORDS=('accuracy' 'confidence' 'ece' 'mce' 'ace' 'ece_kde')
@@ -31,8 +31,8 @@ CALIBRATION_CONFIG_JSON=""
 ############################################
 # OUTPUT ROOTS
 ############################################
-ROOT_OUT="/storagepool/Ashshak/output/all"
-SUMMARY_DIR="/storagepool/Ashshak/output/summaries"
+ROOT_OUT="/storagepool/Ashshak/output3/all"
+SUMMARY_DIR="/storagepool/Ashshak/output3/summaries"
 mkdir -p "$SUMMARY_DIR"
 
 ############################################
@@ -77,7 +77,7 @@ PY
 ############################################
 for TRAINER in "${TRAINERS[@]}"; do
   case "$TRAINER" in
-    "CoOp")
+    "CoOp_BioMedCLIP")
       EPOCH=50; BATCH_SIZE=16; N_CTX=16
       ;;
     *)

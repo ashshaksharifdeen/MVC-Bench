@@ -207,8 +207,59 @@ def MCE(conf, pred, gt, conf_bin_num = 10):
     return mce
 
 
-
 def AdaptiveECE(conf, pred, gt, conf_bin_num=10):
+    """
+    Adaptive Expected Calibration Error (ACE)
+    - Robust to NaNs/Infs in inputs
+    - Quantile-based binning
+    """
+    # --- to numpy 1D ---
+    conf = np.asarray(conf, dtype=float).reshape(-1)
+    pred = np.asarray(pred).reshape(-1)
+    gt   = np.asarray(gt).reshape(-1)
+
+    # --- keep only finite rows across all three arrays ---
+    finite_mask = np.isfinite(conf) & np.isfinite(pred) & np.isfinite(gt)
+    if not finite_mask.any():
+        return 0.0
+    conf = conf[finite_mask]
+    pred = pred[finite_mask]
+    gt   = gt[finite_mask]
+
+    # --- clip confidences to [0,1] just in case ---
+    conf = np.clip(conf, 0.0, 1.0)
+
+    # --- adapt bin count to data ---
+    # unique confs may be < requested bins (e.g., identical conf everywhere)
+    unique_confs = np.unique(conf)
+    # At least 2 bins for KBinsDiscretizer to work sensibly; otherwise fall back to 1 bin manually
+    max_bins = min(len(conf), unique_confs.size)
+    if max_bins <= 1:
+        # single bin case: everything in one bucket
+        df = pd.DataFrame({'ys': gt, 'conf': conf, 'pred': pred})
+        df['correct'] = (df['pred'] == df['ys']).astype(int)
+        acc = df['correct'].mean()
+        cmean = df['conf'].mean()
+        return float(abs(acc - cmean))  # weight = 1 since only one bin
+
+    n_bins = int(max(2, min(conf_bin_num, max_bins)))
+
+    # --- binning (quantiles) ---
+    binner = KBinsDiscretizer(n_bins=n_bins, encode='ordinal', strategy='quantile')
+    conf_bins = binner.fit_transform(conf[:, None]).astype(int).ravel()
+
+    # --- group & compute ACE ---
+    df = pd.DataFrame({'ys': gt, 'conf': conf, 'pred': pred, 'conf_bin': conf_bins})
+    df['correct'] = (df['pred'] == df['ys']).astype(int)
+
+    group_acc   = df.groupby('conf_bin')['correct'].mean()
+    group_confs = df.groupby('conf_bin')['conf'].mean()
+    counts      = df.groupby('conf_bin')['conf'].count()
+
+    ace = (np.abs(group_acc - group_confs) * counts / len(df)).sum()
+    return float(ace)
+
+#def AdaptiveECE(conf, pred, gt, conf_bin_num=10):
 
     """
     Expected Calibration Error
@@ -222,7 +273,7 @@ def AdaptiveECE(conf, pred, gt, conf_bin_num=10):
     Returns:
         ace: expected calibration error
     """
-    df = pd.DataFrame({'ys':gt, 'conf':conf, 'pred':pred})
+    """df = pd.DataFrame({'ys':gt, 'conf':conf, 'pred':pred})
     df['correct'] = (df.pred == df.ys).astype('int')
     df['conf_bin'] = KBinsDiscretizer(n_bins=conf_bin_num, encode='ordinal',strategy='quantile').fit_transform(conf[:, np.newaxis])
     
@@ -232,7 +283,7 @@ def AdaptiveECE(conf, pred, gt, conf_bin_num=10):
     counts = df.groupby(['conf_bin'])['conf'].count()
     ace = (np.abs(group_acc - group_confs) * counts / len(df)).sum()
         
-    return ace
+    return ace"""
 
 def ECE_KDE(conf, pred, gt, p=1, bandwidth=None):
     """
@@ -317,3 +368,224 @@ def ECE_KDE(conf, pred, gt, p=1, bandwidth=None):
     ece_kde = torch.mean(torch.abs(conf - estimated_acc)**p)
     
     return ece_kde.item()
+
+def ensure_probability_matrix(scores):
+    """
+    Ensure input is a valid probability matrix [N, C].
+
+    If the input already looks like probabilities, return it after clipping.
+    If it looks like logits, apply softmax.
+    """
+    scores = np.asarray(scores, dtype=np.float64)
+
+    if scores.ndim != 2:
+        raise ValueError(f"Expected shape [N, C], but got {scores.shape}")
+
+    row_sums = scores.sum(axis=1)
+    is_non_negative = np.all(scores >= -1e-8)
+    sums_to_one = np.allclose(row_sums, 1.0, atol=1e-4, rtol=1e-4)
+
+    if is_non_negative and sums_to_one:
+        probs = np.clip(scores, 0.0, 1.0)
+        probs = probs / np.clip(probs.sum(axis=1, keepdims=True), 1e-12, None)
+        return probs
+
+    # Stable softmax for logits
+    shifted = scores - np.max(scores, axis=1, keepdims=True)
+    exp_scores = np.exp(shifted)
+    probs = exp_scores / np.clip(exp_scores.sum(axis=1, keepdims=True), 1e-12, None)
+
+    return probs
+
+
+def multiclass_brier_score(probs, labels):
+    """
+    Multi-class Brier score.
+
+    Brier = mean_i sum_c (p_ic - y_ic)^2
+
+    Lower is better.
+    """
+    probs = ensure_probability_matrix(probs)
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+
+    n, num_classes = probs.shape
+
+    if len(labels) != n:
+        raise ValueError(
+            f"Number of labels ({len(labels)}) does not match probabilities ({n})"
+        )
+
+    if labels.min() < 0 or labels.max() >= num_classes:
+        raise ValueError(
+            f"Labels must be in [0, {num_classes - 1}], "
+            f"but got min={labels.min()}, max={labels.max()}"
+        )
+
+    one_hot = np.zeros_like(probs, dtype=np.float64)
+    one_hot[np.arange(n), labels] = 1.0
+
+    per_sample_brier = np.sum((probs - one_hot) ** 2, axis=1)
+    brier = float(np.mean(per_sample_brier))
+
+    return brier, per_sample_brier
+
+
+def binary_calibration_error(scores, targets, conf_bin_num=10):
+    """
+    Generic binary calibration error.
+
+    scores:
+        probability/confidence values, shape [N]
+
+    targets:
+        binary targets, shape [N]
+        1 = positive/correct
+        0 = negative/incorrect
+
+    Returns value in [0, 1].
+    """
+    scores = np.asarray(scores, dtype=np.float64).reshape(-1)
+    targets = np.asarray(targets, dtype=np.float64).reshape(-1)
+
+    finite_mask = np.isfinite(scores) & np.isfinite(targets)
+    scores = scores[finite_mask]
+    targets = targets[finite_mask]
+
+    if len(scores) == 0:
+        return np.nan
+
+    scores = np.clip(scores, 0.0, 1.0)
+
+    bins = np.linspace(0.0, 1.0, conf_bin_num + 1)
+    bin_ids = np.digitize(scores, bins[1:-1], right=True)
+
+    ece = 0.0
+    n = len(scores)
+
+    for b in range(conf_bin_num):
+        mask = bin_ids == b
+
+        if not np.any(mask):
+            continue
+
+        bin_acc = targets[mask].mean()
+        bin_conf = scores[mask].mean()
+        bin_weight = mask.sum() / n
+
+        ece += bin_weight * abs(bin_acc - bin_conf)
+
+    return float(ece)
+
+
+def top_label_classwise_ece(probs, labels, conf_bin_num=10):
+    """
+    True-class-conditioned top-label class-wise ECE.
+
+    For each ground-truth class c:
+        - select samples where label == c
+        - confidence = max softmax probability
+        - correctness = 1 if prediction is correct else 0
+
+    This is the most direct class-wise version of your current ECE.
+    """
+    probs = ensure_probability_matrix(probs)
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+
+    preds = np.argmax(probs, axis=1)
+    confs = probs[np.arange(len(labels)), preds]
+
+    num_classes = probs.shape[1]
+    rows = []
+
+    for c in range(num_classes):
+        mask = labels == c
+        n_c = int(mask.sum())
+        freq_c = n_c / max(len(labels), 1)
+
+        if n_c == 0:
+            rows.append({
+                "class_id": c,
+                "n": 0,
+                "freq": 0.0,
+                "class_acc": np.nan,
+                "toplabel_ece": np.nan,
+            })
+            continue
+
+        class_confs = confs[mask]
+        class_correct = (preds[mask] == labels[mask]).astype(np.float64)
+
+        class_ece = binary_calibration_error(
+            class_confs,
+            class_correct,
+            conf_bin_num=conf_bin_num
+        )
+
+        class_acc = float(class_correct.mean())
+
+        rows.append({
+            "class_id": c,
+            "n": n_c,
+            "freq": freq_c,
+            "class_acc": class_acc,
+            "toplabel_ece": class_ece,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def one_vs_rest_classwise_ece(probs, labels, conf_bin_num=10):
+    """
+    One-vs-rest class-wise ECE.
+
+    For each class c:
+        - score = predicted probability assigned to class c
+        - target = 1 if true label is c else 0
+
+    This checks whether each class probability is calibrated.
+    """
+    probs = ensure_probability_matrix(probs)
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+
+    num_classes = probs.shape[1]
+    rows = []
+
+    for c in range(num_classes):
+        scores_c = probs[:, c]
+        targets_c = (labels == c).astype(np.float64)
+
+        class_ece = binary_calibration_error(
+            scores_c,
+            targets_c,
+            conf_bin_num=conf_bin_num
+        )
+
+        n_c = int((labels == c).sum())
+        freq_c = n_c / max(len(labels), 1)
+
+        rows.append({
+            "class_id": c,
+            "n": n_c,
+            "freq": freq_c,
+            "ovr_ece": class_ece,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def summarize_classwise_metric(df, metric_name):
+    """
+    Return macro, weighted, and max class-wise metric.
+    Values are returned in raw scale [0, 1].
+    """
+    valid = df[(df["n"] > 0) & np.isfinite(df[metric_name])]
+
+    if len(valid) == 0:
+        return np.nan, np.nan, np.nan
+
+    macro_value = float(valid[metric_name].mean())
+    weighted_value = float(np.average(valid[metric_name], weights=valid["n"]))
+    max_value = float(valid[metric_name].max())
+
+    return macro_value, weighted_value, max_value

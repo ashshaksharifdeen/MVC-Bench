@@ -33,7 +33,7 @@ fi
 echo "Using loss directory: ${LOSS_DIR}"
 
 # Create directory with loss information
-DIR=/storagepool/Ashshak/output/all/${TARGET_DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED}
+DIR=/storagepool/Ashshak/output_quiltnet/all/${TARGET_DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED}
 
 
 
@@ -47,7 +47,7 @@ if [ -d "$DIR" ]; then
     --trainer ${TRAINER} \
     --dataset-config-file configs/datasets/${TARGET_DATASET}.yaml \
     --config-file configs/trainers/${TRAINER}/${CFG}.yaml \
-    --model-dir /storagepool/Ashshak/output/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED} \
+    --model-dir /storagepool/Ashshak/output_quiltnet/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED} \
     --output-dir ${DIR} \
     --load-epoch ${LOADEP} \
     --eval-only \
@@ -63,7 +63,7 @@ else
     --trainer ${TRAINER} \
     --dataset-config-file configs/datasets/${TARGET_DATASET}.yaml \
     --config-file configs/trainers/${TRAINER}/${CFG}.yaml \
-    --model-dir /storagepool/Ashshak/output/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED} \
+    --model-dir /storagepool/Ashshak/output_quiltnet/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED} \
     --output-dir ${DIR} \
     --load-epoch ${LOADEP} \
     --eval-only \

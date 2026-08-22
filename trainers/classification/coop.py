@@ -269,6 +269,13 @@ class CustomCLIP(nn.Module): # Changed for ECCV
                         loss_value = loss_fn(text_features)
                     else:
                         continue
+
+                elif loss_name == 'EMBEDING_LOSS':
+                    # Feature-based loss
+                    if text_features is not None:
+                        loss_value = loss_fn(text_features)
+                    else:
+                        continue    
                 elif loss_name in ['FL', 'LS', 'SMAC']:
                     # Losses that need config parameters
                     loss_value = loss_fn(logits, label, cfg=self.cfg)
@@ -285,7 +292,14 @@ class CustomCLIP(nn.Module): # Changed for ECCV
                 elif loss_name == 'MARGIN_MEAN_VAR':
                     # Direct use with logits and labels
                     loss_value = loss_fn(logits, label)
+                elif loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT':
+                    loss_value = loss_fn(logits,label,variance_mode="all_pairs")    
                 
+                elif loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_CB':
+                    loss_value = loss_fn(logits,label,variance_mode="all_pairs") 
+                elif loss_name == 'MARGIN_MEAN_VAR_PER_SAMPLE':
+                    loss_value, logs = loss_fn(logits, label, alpha=0.1, beta=0.01, clamp_var_min=0.0, reduction="mean")
+
                 elif loss_name == 'MDCA':
                     # Direct use with logits and labels
                     loss_value = loss_fn(logits, label)  
@@ -319,6 +333,8 @@ class CustomCLIP(nn.Module): # Changed for ECCV
 
         logit_scale = self.logit_scale.exp()
         logits = logit_scale * image_features @ text_features.t()
+        #temperaturescaling
+        #logits= logits/1.16
 
         if self.prompt_learner.training:
             return self.compute_losses(logits, label, text_features=text_features,

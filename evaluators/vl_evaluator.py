@@ -6,7 +6,19 @@ from sklearn.metrics import f1_score, confusion_matrix
 from dassl.evaluation.build import EVALUATOR_REGISTRY
 from dassl.evaluation.evaluator import Classification
 
-from tools.metrics import ECE, MCE, AdaptiveECE, PIECE, ECE_KDE
+#from tools.metrics import ECE, MCE, AdaptiveECE, PIECE, ECE_KDE
+from tools.metrics import (
+    ECE,
+    MCE,
+    AdaptiveECE,
+    PIECE,
+    ECE_KDE,
+    ensure_probability_matrix,
+    multiclass_brier_score,
+    top_label_classwise_ece,
+    one_vs_rest_classwise_ece,
+    summarize_classwise_metric,
+)
 from tools.plot import plot_reliability_diagram
 
 @EVALUATOR_REGISTRY.register()
@@ -59,61 +71,27 @@ class VLClassification(Classification):
         #         self._per_class_res[label].append(matches_i)
 
     def evaluate(self, probs, labels, text_proximity):
-
         results = OrderedDict()
+
         ece_bin = self.cfg.CALIBRATION.METRICS.ECE_BINS
-        # piece_bin = self.cfg.CALIBRATION.METRICS.PIECE_BINS
 
-        # def debug_ECE(conf, pred, gt, conf_bin_num=10, description=""):
-        #     """Debug version of ECE calculation"""
-        #     print(f"\nDebugging ECE calculation for: {description}")
-        #     print(f"Total samples: {len(conf)}")
-        #     print(f"Average confidence: {np.mean(conf):.4f}")
-        #     print(f"Accuracy: {100*np.mean(pred == gt):.2f}%")
-            
-        #     bins = np.linspace(0, 1, conf_bin_num+1)
-        #     bin_indices = np.digitize(conf, bins) - 1
-            
-        #     print("\nBin Analysis:")
-        #     print(f"{'Bin Range':<15} {'Samples':<10} {'Accuracy':<10} {'Conf':<10} {'|Acc-Conf|':<10} {'Weight':<10} {'Contribution':<10}")
-        #     print("-" * 75)
-            
-        #     bin_acc = []
-        #     bin_confidences = []
-        #     total_contribution = 0
-            
-        #     for i in range(conf_bin_num):
-        #         in_bin = bin_indices == i
-        #         n_in_bin = np.sum(in_bin)
-                
-        #         if n_in_bin > 0:
-        #             accuracy = np.mean(gt[in_bin] == pred[in_bin])
-        #             mean_confidence = np.mean(conf[in_bin])
-        #         else:
-        #             accuracy = 0
-        #             mean_confidence = 0
-                    
-        #         bin_acc.append(accuracy)
-        #         bin_confidences.append(mean_confidence)
-                
-        #         weight = n_in_bin / len(conf)
-        #         contribution = weight * abs(accuracy - mean_confidence)
-        #         total_contribution += contribution
-                
-        #         bin_range = f"{bins[i]:.2f}-{bins[i+1]:.2f}"
-        #         print(f"{bin_range:<15} {n_in_bin:<10d} {accuracy*100:>7.2f}% {mean_confidence*100:>8.2f}% {abs(accuracy-mean_confidence)*100:>9.2f}% {weight:>9.4f} {contribution:>10.4f}")
-            
-        #     print(f"\nTotal ECE: {total_contribution*100:.2f}%")
-        #     return total_contribution
+        # ---------------------------------------------------------
+        # Safety conversion
+        # ---------------------------------------------------------
+        probs = ensure_probability_matrix(probs)
+        labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+
         total = len(labels)
+        num_classes = probs.shape[1]
 
-        # make the prediction
+        # ---------------------------------------------------------
+        # Predictions
+        # ---------------------------------------------------------
         preds = np.argmax(probs, axis=1)
+        confs = probs[np.arange(total), preds]
 
-        correct = np.sum(preds == labels)
-
+        correct = int(np.sum(preds == labels))
         accuracy = 100.0 * correct / total
-
         error = 100.0 - accuracy
 
         macro_f1 = 100.0 * f1_score(
@@ -123,104 +101,175 @@ class VLClassification(Classification):
             labels=np.unique(labels)
         )
 
-        confs = probs[range(probs.shape[0]), preds]
-        avg_conf = np.mean(confs)
+        # Store confidence as percentage for logging consistency
+        avg_conf = 100.0 * float(np.mean(confs))
 
-        ece = 100.0 * ECE(confs, preds, labels, ece_bin) # debug
-
+        # ---------------------------------------------------------
+        # Existing calibration metrics
+        # ---------------------------------------------------------
+        ece = 100.0 * ECE(confs, preds, labels, ece_bin)
         mce = 100.0 * MCE(confs, preds, labels, ece_bin)
-
         ace = 100.0 * AdaptiveECE(confs, preds, labels, ece_bin)
-
         ece_kde = 100.0 * ECE_KDE(confs, preds, labels, p=1)
 
-        # piece = 0.0 # or 0.0 if you prefer
+        # Optional PIECE
+        piece = None
+        # If you later use text_proximity, uncomment and define piece bins.
         # if text_proximity is not None:
-        #     piece = 100.0 * PIECE(confs, text_proximity, preds, labels, piece_bin, ece_bin)
+        #     piece = 100.0 * PIECE(confs, text_proximity, preds, labels, 10, ece_bin)
 
-        # Calculate ECE-KDE (ABHISHEK)
-        # In vl_evaluator.py
-        # Calculate ECE-KDE
-        print(f"Debug - probs shape: {probs.shape}, dtype: {probs.dtype}")
-        print(f"Debug - preds shape: {preds.shape}, dtype: {preds.dtype}")
-        print(f"Debug - labels shape: {labels.shape}, dtype: {labels.dtype}")
+        # ---------------------------------------------------------
+        # New metric 1: Multi-class Brier score
+        # ---------------------------------------------------------
+        brier, per_sample_brier = multiclass_brier_score(probs, labels)
 
-        # The first value will be returned by trainer.test()
+        # Normalized Brier is useful when comparing datasets
+        # with different number of classes.
+        brier_norm = brier / num_classes
+
+        # ---------------------------------------------------------
+        # New metric 2: Class-wise ECE
+        # ---------------------------------------------------------
+
+        # A) True-class-conditioned top-label class-wise ECE
+        toplabel_df = top_label_classwise_ece(
+            probs,
+            labels,
+            conf_bin_num=ece_bin
+        )
+
+        # B) One-vs-rest class-wise ECE
+        ovr_df = one_vs_rest_classwise_ece(
+            probs,
+            labels,
+            conf_bin_num=ece_bin
+        )
+
+        # Merge both class-wise tables
+        classwise_df = toplabel_df.merge(
+            ovr_df[["class_id", "ovr_ece"]],
+            on="class_id",
+            how="left"
+        )
+
+        # Add class-wise Brier score based on true class
+        class_brier = []
+        class_brier_norm = []
+
+        for c in range(num_classes):
+            mask = labels == c
+
+            if not np.any(mask):
+                class_brier.append(np.nan)
+                class_brier_norm.append(np.nan)
+            else:
+                value = float(np.mean(per_sample_brier[mask]))
+                class_brier.append(value)
+                class_brier_norm.append(value / num_classes)
+
+        classwise_df["brier_true_class"] = class_brier
+        classwise_df["brier_true_class_norm"] = class_brier_norm
+
+        # Add class names
+        class_names = []
+        for c in classwise_df["class_id"].tolist():
+            if self._lab2cname is not None:
+                class_names.append(self._lab2cname.get(c, f"class_{c}"))
+            else:
+                class_names.append(f"class_{c}")
+
+        classwise_df.insert(1, "class_name", class_names)
+
+        # Summarise class-wise metrics
+        toplabel_ece_macro, toplabel_ece_weighted, toplabel_ece_max = summarize_classwise_metric(
+            classwise_df,
+            "toplabel_ece"
+        )
+
+        ovr_ece_macro, ovr_ece_weighted, ovr_ece_max = summarize_classwise_metric(
+            classwise_df,
+            "ovr_ece"
+        )
+
+        classwise_brier_macro = float(
+            np.nanmean(classwise_df["brier_true_class"].values)
+        )
+
+        classwise_brier_norm_macro = float(
+            np.nanmean(classwise_df["brier_true_class_norm"].values)
+        )
+
+        # ---------------------------------------------------------
+        # Save class-wise CSV
+        # ---------------------------------------------------------
+        classwise_csv_path = osp.join(
+            self.cfg.OUTPUT_DIR,
+            f"{self.cfg.DATASET.NAME}_{self.cfg.TRAINER.NAME}_classwise_calibration.csv"
+        )
+
+        classwise_df.to_csv(classwise_csv_path, index=False)
+
+        # ---------------------------------------------------------
+        # Results dictionary
+        # ---------------------------------------------------------
         results["accuracy"] = accuracy
         results["error_rate"] = error
         results["macro_f1"] = macro_f1
         results["confidence"] = avg_conf
+
+        # Existing calibration metrics
         results["ece"] = ece
         results["mce"] = mce
         results["ace"] = ace
-        # results["piece"] = piece
-        results["ece_kde"] = ece_kde # ABHISHEK
+        results["ece_kde"] = ece_kde
 
-        # Calculate per-class metrics # ABHISHEK
-        unique_labels = np.unique(labels)
-        
-        # Ground Truth Based ECE
-        # This calculates "For samples that are actually class X (ground truth), what percentage did we get right?"
-        print("\n=> Per-class ECE (Ground Truth Based)")
-        print(f"{'Class':<15} {'Samples':<10} {'Accuracy':<10} {'ECE':<10}")
-        print("-" * 45)
-        
-        gt_ece_values = []
-        for label in unique_labels:
-            # Get indices where true label is this class
-            gt_indices = labels == label
-            gt_confs = confs[gt_indices]
-            gt_preds = preds[gt_indices]
-            gt_labels = labels[gt_indices]
-            
-            n_samples = np.sum(gt_indices)
-            class_acc = 100.0 * np.mean(gt_preds == gt_labels)
-            class_ece = 100.0 * ECE(gt_confs, gt_preds, gt_labels, ece_bin) #debug
-            gt_ece_values.append(class_ece)
-            
-            label_name = self._lab2cname.get(label, f"Label_{label}")
-            print(f"{label_name:<15} {n_samples:<10d} {class_acc:>7.2f}%  {class_ece:>7.2f}%")
-            
-            # Store results
-            results[f"gt_ece_class_{label_name}"] = float(class_ece)
-            results[f"gt_acc_class_{label_name}"] = float(class_acc)
-            results[f"gt_samples_class_{label_name}"] = int(n_samples)
-        
-        # Prediction Based ECE
-        # This calculates "For samples we predicted as class X, what percentage did we get right?" (precision)
-        print("\n=> Per-class ECE (Prediction Based)")
-        print(f"{'Class':<15} {'Predictions':<12} {'Precision':<10} {'ECE':<10}")
-        print("-" * 47)
-        
-        pred_ece_values = []
-        for label in unique_labels:
-            # Get indices where model predicted this class
-            pred_indices = preds == label
-            pred_confs = confs[pred_indices]
-            pred_preds = preds[pred_indices]
-            pred_labels = labels[pred_indices]
-            
-            n_predictions = np.sum(pred_indices)
-            class_precision = 100.0 * np.mean(pred_preds == pred_labels)
-            class_ece = 100.0 * ECE(pred_confs, pred_preds, pred_labels, ece_bin) # debug
-            pred_ece_values.append(class_ece)
-            
-            label_name = self._lab2cname.get(label, f"Label_{label}")
-            print(f"{label_name:<15} {n_predictions:<12d} {class_precision:>7.2f}%  {class_ece:>7.2f}%")
-            
-            # Store results
-            results[f"pred_ece_class_{label_name}"] = float(class_ece)
-            results[f"pred_precision_class_{label_name}"] = float(class_precision)
-            results[f"pred_samples_class_{label_name}"] = int(n_predictions)
-        
-        # Store mean ECE values
-        results["mean_gt_ece"] = float(np.mean(gt_ece_values))
-        results["mean_pred_ece"] = float(np.mean(pred_ece_values))
-        
-        print(f"\nMean Ground Truth Based ECE: {results['mean_gt_ece']:.2f}%")
-        print(f"Mean Prediction Based ECE: {results['mean_pred_ece']:.2f}%")
+        if piece is not None:
+            results["piece"] = piece
 
+        # New Brier metrics
+        results["brier"] = brier * 100.0
+        results["brier_norm"] = brier_norm * 100.0
 
+        # New class-wise ECE metrics
+        results["toplabel_ece_macro"] = toplabel_ece_macro * 100.0
+        results["toplabel_ece_weighted"] = toplabel_ece_weighted * 100.0
+        results["toplabel_ece_max"] = toplabel_ece_max * 100.0
+
+        results["ovr_ece_macro"] = ovr_ece_macro * 100.0
+        results["ovr_ece_weighted"] = ovr_ece_weighted * 100.0
+        results["ovr_ece_max"] = ovr_ece_max * 100.0
+
+        # New class-wise Brier metrics
+        results["classwise_brier_macro"] = classwise_brier_macro * 100.0
+        results["classwise_brier_norm_macro"] = classwise_brier_norm_macro * 100.0
+
+        # ---------------------------------------------------------
+        # Print class-wise table
+        # ---------------------------------------------------------
+        print("\n=> Class-wise calibration table")
+        print(
+            f"{'Class':<25} {'N':<8} {'Freq':<10} "
+            f"{'Acc':<10} {'Top-ECE':<10} {'OVR-ECE':<10} {'Brier':<10}"
+        )
+        print("-" * 90)
+
+        for _, row in classwise_df.iterrows():
+            print(
+                f"{row['class_name']:<25} "
+                f"{int(row['n']):<8d} "
+                f"{row['freq']:<10.4f} "
+                f"{row['class_acc'] * 100.0:>7.2f}%  "
+                f"{row['toplabel_ece'] * 100.0:>7.2f}%  "
+                f"{row['ovr_ece'] * 100.0:>7.2f}%  "
+                f"{row['brier_true_class']:>9.6f}"
+            )
+
+        print(f"\nClass-wise calibration CSV saved to: {classwise_csv_path}")
+
+        # ---------------------------------------------------------
+        # Final log block
+        # Keep this block parse-friendly.
+        # ---------------------------------------------------------
         print(
             "=> result\n"
             f"* total: {total:,}\n"
@@ -232,50 +281,58 @@ class VLClassification(Classification):
             f"* ece: {ece:.2f}%\n"
             f"* mce: {mce:.2f}%\n"
             f"* ace: {ace:.2f}%\n"
-            # f"* piece: {piece:.2f}%\n"
             f"* ece_kde: {ece_kde:.2f}%\n"
+            f"* brier: {brier:.6f}%\n"
+            f"* brier_norm: {brier_norm:.6f}%\n"
+            f"* toplabel_ece_macro: {toplabel_ece_macro * 100.0:.2f}%\n"
+            f"* toplabel_ece_weighted: {toplabel_ece_weighted * 100.0:.2f}%\n"
+            f"* toplabel_ece_max: {toplabel_ece_max * 100.0:.2f}%\n"
+            f"* ovr_ece_macro: {ovr_ece_macro * 100.0:.2f}%\n"
+            f"* ovr_ece_weighted: {ovr_ece_weighted * 100.0:.2f}%\n"
+            f"* ovr_ece_max: {ovr_ece_max * 100.0:.2f}%\n"
+            f"* classwise_brier_macro: {classwise_brier_macro:.6f}%\n"
+            f"* classwise_brier_norm_macro: {classwise_brier_norm_macro:.6f}%\n"
         )
-        
-        # plot ece
+
+        # ---------------------------------------------------------
+        # Reliability diagram: overall
+        # ---------------------------------------------------------
         base_dir = self.cfg.OUTPUT_DIR
-        base_name = self.cfg.DATASET.NAME + '_' + self.cfg.TRAINER.NAME
+        base_name = self.cfg.DATASET.NAME + "_" + self.cfg.TRAINER.NAME
+        overall_plot_name = base_name + "_overall_ece.png"
+        overall_plot_path = osp.join(base_dir, overall_plot_name)
 
-        # if self.cfg.CALIBRATION.SCALING.IF_SCALING:
-        #     base_name = base_name + '_' + str(self.cfg.CALIBRATION.SCALING.MODE)
+        plot_reliability_diagram(
+            preds,
+            confs,
+            labels,
+            ece_bin,
+            None,
+            overall_plot_path
+        )
 
-        base_name  = base_name + '_overall_ece.png'
-        plot_dir = osp.join(base_dir, base_name)
+        # ---------------------------------------------------------
+        # Reliability diagrams: true-class-conditioned
+        # ---------------------------------------------------------
+        for c in range(num_classes):
+            mask = labels == c
 
-        plot_reliability_diagram(preds, confs, labels, ece_bin, None, plot_dir)
+            if not np.any(mask):
+                continue
 
-        # Plot per-class reliability diagrams for ground-truth based
-        for label in unique_labels:
-            label_name = self._lab2cname.get(label, f"Label_{label}")
-            gt_indices = labels == label
-            plot_name = base_name.replace('_overall_ece.png', f'_gt_based_{label_name}_ece.png')
-            plot_dir = osp.join(base_dir, plot_name)
+            class_name = self._lab2cname.get(c, f"class_{c}") if self._lab2cname else f"class_{c}"
+            safe_name = str(class_name).replace("/", "_").replace(" ", "_")
+
+            plot_name = base_name + f"_true_class_{safe_name}_ece.png"
+            plot_path = osp.join(base_dir, plot_name)
+
             plot_reliability_diagram(
-                preds[gt_indices],
-                confs[gt_indices],
-                labels[gt_indices],
+                preds[mask],
+                confs[mask],
+                labels[mask],
                 ece_bin,
                 None,
-                plot_dir
-            )
-
-        # Plot per-class reliability diagrams for prediction based
-        for label in unique_labels:
-            label_name = self._lab2cname.get(label, f"Label_{label}")
-            pred_indices = preds == label
-            plot_name = base_name.replace('_overall_ece.png', f'_pred_based_{label_name}_ece.png')
-            plot_dir = osp.join(base_dir, plot_name)
-            plot_reliability_diagram(
-                preds[pred_indices],
-                confs[pred_indices],
-                labels[pred_indices],
-                ece_bin,
-                None,
-                plot_dir
+                plot_path
             )
 
         return results

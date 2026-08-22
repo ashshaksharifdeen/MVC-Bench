@@ -244,7 +244,10 @@ class CustomCLIP(nn.Module):
                     loss_value = loss_fn(logits, label)
                 elif loss_name == 'LS':
                     # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label) 
+                    loss_value = loss_fn(logits, label)
+                elif loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT':
+                    loss_value = loss_fn(logits,label,variance_mode="all_pairs")       
+                
                 else:
                     # Standard losses
                     loss_value = loss_fn(logits, label)
@@ -268,7 +271,8 @@ class CustomCLIP(nn.Module):
 
         logit_scale = self.logit_scale.exp()
         logits = logit_scale * image_features @ text_features.t()
-
+        #temperaturescaling
+        logits= logits/1.16
         if self.prompt_learner.training and label is not None:
             return self.compute_losses(logits, label, text_features, zero_shot_logits=zero_shot_logits)
 

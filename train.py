@@ -19,6 +19,10 @@ import datasets.aptos
 import datasets.eyepacs
 import datasets.messidor
 import datasets.messidor_2
+import datasets.FourtyX
+import datasets.HundredX
+import datasets.TwoHundredX
+import datasets.FourHundredX
 
 # few-shot CLIP
 import trainers.classification.base_learner
@@ -161,15 +165,34 @@ def extend_cfg(cfg):
     cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR = CN()
     cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR.WEIGHT = 1.0
 
+    # MARGIN_MEAN_VAR Loss config
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT = CN()
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT.WEIGHT = 1.0
+
+    #MARGIN_MEAN_VAR_ALLCLASS_CB
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR_ALLCLASS_CB = CN()
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR_ALLCLASS_CB.WEIGHT = 1.0
+
+    #MARGIN_MEAN_VAR_PER_SAMPLE
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR_PER_SAMPLE = CN()
+    cfg.TRAINER.COOP.LOSS.MARGIN_MEAN_VAR_PER_SAMPLE.WEIGHT = 1.0
+    
     # TEXT_MOMENT_MATCHING Loss config
     cfg.TRAINER.COOP.LOSS.TEXT_MOMENT_MATCHING = CN()
     cfg.TRAINER.COOP.LOSS.TEXT_MOMENT_MATCHING.WEIGHT = 5.0
 
+    # EMBEDING_LOSS Loss config
+    cfg.TRAINER.COOP.LOSS.EMBEDING_LOSS = CN()
+    cfg.TRAINER.COOP.LOSS.EMBEDING_LOSS.WEIGHT = 1.0
+
     # IMPORTANT: Keep metrics config for evaluator
     cfg.CALIBRATION = CN()
     cfg.CALIBRATION.METRICS = CN()
-    cfg.CALIBRATION.METRICS.ECE_BINS = 10  # the number of bins for ece calculation
+    # Use 20 bins to match your main paper setting
+    cfg.CALIBRATION.METRICS.ECE_BINS = 20
 
+    # Optional flag for future use
+    cfg.CALIBRATION.METRICS.SAVE_CLASSWISE_CSV = True
 def setup_cfg(args):
     cfg = get_cfg_default()
     extend_cfg(cfg)

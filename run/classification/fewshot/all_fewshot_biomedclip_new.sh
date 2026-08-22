@@ -1,13 +1,13 @@
 #!/bin/bash
 # CUDA
-GPU_ID="${1:-1}"
+GPU_ID="${1:-2}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # dataset
-DATA_DIR="/storagepool/Ashshak/DR"
+DATA_DIR="/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA" #"/storagepool/Ashshak/DR" #"/l/Ashshak/DATA" #/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA
 # Suppress tokenizer warnings
 export TOKENIZERS_PARALLELISM=false
 # Datasets to use
-new_class_datasets=(aptos eyepacs messidor messidor_2)
+new_class_datasets=(rsna18 covid) #(rsna18 covid)   #(aptos eyepacs messidor messidor_2) #(rsna18 covid) #("rsna18" "covid") #(aptos eyepacs messidor messidor_2)
 
 seeds=(1 2 3)
 
@@ -20,18 +20,36 @@ BACKBONE=vit_b32_biomedclip
 TRAINERS=('CoOp_BioMedCLIP')
 
 # keywords for evaluation
-KEYWORDS=('accuracy' 'confidence' 'ece' 'mce' 'ace' 'ece_kde')
-
+#KEYWORDS=('accuracy' 'confidence' 'ece' 'mce' 'ace' 'ece_kde')
+KEYWORDS=(
+  'accuracy'
+  'confidence'
+  'ece'
+  'mce'
+  'ace'
+  'ece_kde'
+  'brier'
+  'brier_norm'
+  'toplabel_ece_macro'
+  'toplabel_ece_weighted'
+  'toplabel_ece_max'
+  'ovr_ece_macro'
+  'ovr_ece_weighted'
+  'ovr_ece_max'
+  'classwise_brier_macro'
+  'classwise_brier_norm_macro'
+)
 # Optional: calibration config JSON for log filename suffixes (leave empty if unused)
 CALIBRATION_CONFIG_JSON=""
+CAL_BINS=20
 # Example:
 # CALIBRATION_CONFIG_JSON='{"BASE_CALIBRATION_MODE": true, "SCALING_CONFIG": true, "SCALING_CALIBRATOR_NAME": "ts", "BIN_CALIBRATOR_NAME": "", "IF_DAC": false, "IF_PROCAL": false}'
 
 ############################################
 # OUTPUT ROOTS
 ############################################
-ROOT_OUT="/storagepool/Ashshak/output/all"
-SUMMARY_DIR="/storagepool/Ashshak/output/summaries"
+ROOT_OUT="/storagepool/Ashshak/output3/all"
+SUMMARY_DIR="/storagepool/Ashshak/output3/summaries"
 mkdir -p "$SUMMARY_DIR"
 
 ############################################
@@ -106,7 +124,8 @@ for TRAINER in "${TRAINERS[@]}"; do
   for dataset in "${new_class_datasets[@]}"; do
     for seed in "${seeds[@]}"; do
       bash scripts/classification/all_fewshot_biomedclip.sh \
-        "$TRAINER" "$TRAINER_CFG" "$dataset" "$DATA_DIR" "$SHOTS" "$seed"
+        "$TRAINER" "$TRAINER_CFG" "$dataset" "$DATA_DIR" "$SHOTS" "$seed" "$CAL_BINS"
+        #"$TRAINER" "$TRAINER_CFG" "$dataset" "$DATA_DIR" "$SHOTS" "$seed"
     done
   done
 

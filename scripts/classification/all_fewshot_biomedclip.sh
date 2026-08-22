@@ -9,6 +9,7 @@ DATA=$4
 SHOTS=$5
 SUB=all
 SEED=$6
+CAL_BINS="${7:-20}"
 # Suppress tokenizer warnings
 export TOKENIZERS_PARALLELISM=false
 # Extract loss information from config file
@@ -19,7 +20,7 @@ losses = '_'.join(config['TRAINER']['COOP']['LOSS']['ENABLED_LOSSES'])
 weights = '_'.join(str(config['TRAINER']['COOP']['LOSS'][loss]['WEIGHT']) for loss in config['TRAINER']['COOP']['LOSS']['ENABLED_LOSSES'])
 print(f'losses_{losses}_weights_{weights}')" 2>/dev/null)
 # Create directory with loss information
-DIR=/storagepool/Ashshak/output/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED}
+DIR=/storagepool/Ashshak/output3/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED}
 if [ -d "$DIR" ]; then
 echo "Results are available in ${DIR}. Resuming..."
 python train.py \
@@ -32,7 +33,9 @@ python train.py \
  DATASET.NUM_SHOTS ${SHOTS} \
  DATASET.SUBSAMPLE_CLASSES ${SUB} \
  MODEL.NAME "biomedclip" \
- MODEL_ROOT "/home/ashashak/CalibPrompt/models"
+ MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
+ CALIBRATION.METRICS.ECE_BINS ${CAL_BINS}
+ 
 else
 echo "Run this job and save the output to ${DIR}"
 python train.py \
@@ -45,5 +48,6 @@ python train.py \
  DATASET.NUM_SHOTS ${SHOTS} \
  DATASET.SUBSAMPLE_CLASSES ${SUB} \
  MODEL.NAME "biomedclip" \
- MODEL_ROOT "/home/ashashak/CalibPrompt/models"
+ MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
+ CALIBRATION.METRICS.ECE_BINS ${CAL_BINS}
 fi

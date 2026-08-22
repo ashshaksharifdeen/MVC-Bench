@@ -4,21 +4,21 @@ set -Eeuo pipefail
 ############################################
 # GPU
 ############################################
-GPU_ID="${1:-2}"
+GPU_ID="${1:-0}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 
 ############################################
 # DATA & EXP CONFIG
 ############################################
-DATA_DIR="/storagepool/Ashshak/DR"
-train_dataset=messidor
-new_class_datasets=(aptos eyepacs messidor_2)
+DATA_DIR="/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA" #"/storagepool/Ashshak/DR"   #"/storagepool/Ashshak/DR" #"/l/Ashshak/DATA" #"/storagepool/Ashshak/DR"
+train_dataset=rsna18 #messidor
+new_class_datasets=(covid) #(aptos eyepacs messidor_2) 
 seeds=(1 2 3)
-SHOTS=8
+SHOTS=16
 
 # Model / Trainer
 BACKBONE="vit_b32_medclip"
-TRAINERS=('CoOp')
+TRAINERS=('CoOp_MedCLIP')
 
 # Metrics (must match lines like: "* metric: 12.34%")
 KEYWORDS=('accuracy' 'confidence' 'ece' 'mce' 'ace' 'ece_kde')
@@ -77,7 +77,7 @@ PY
 ############################################
 for TRAINER in "${TRAINERS[@]}"; do
   case "$TRAINER" in
-    "CoOp")
+    'CoOp_MedCLIP')
       EPOCH=50; BATCH_SIZE=16; N_CTX=16
       ;;
     *)

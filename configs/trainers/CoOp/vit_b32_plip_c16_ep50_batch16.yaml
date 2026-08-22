@@ -32,9 +32,9 @@ TRAINER:
   COOP:
     N_CTX: 16
     CTX_INIT: ""
-    PREC: "fp16" # Use "fp32" only for ECCV_PENALTY and ECCV_ZS or else use "fp16" for all other losses
+    PREC: "fp32" # Use "fp32" only for ECCV_PENALTY and ECCV_ZS or else use "fp16" for all other losses
     LOSS:
-      ENABLED_LOSSES: ['CE', 'ECCV_ZS']  # 'CE', 'DCA', MDCA, FL, LS, RCR # ABHISHEK
+      ENABLED_LOSSES: ['CE','MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT']  # 'CE', 'DCA', MDCA, FL, LS, RCR # ABHISHEK
       CE:
         WEIGHT: 1.0
       DCA:
@@ -67,5 +67,13 @@ TRAINER:
         TEMPERATURE: 1.0             # Temperature parameter (t)
       MARGIN_MEAN_VAR:
         WEIGHT: 1.0
+      MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT:
+        WEIGHT: 1.0  
+      MARGIN_MEAN_VAR_ALLCLASS_CB:
+        WEIGHT: 1.0  
+      MARGIN_MEAN_VAR_PER_SAMPLE:
+        WEIGHT: 1.0   
       TEXT_MOMENT_MATCHING:
         WEIGHT: 5.0
+      EMBEDING_LOSS:
+        WEIGHT: 1.0  

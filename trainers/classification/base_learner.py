@@ -8,7 +8,7 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from scipy.special import softmax
-
+from trainers.classification.temp_scaling  import *
 from dassl.engine import TRAINER_REGISTRY, TrainerX
 from dassl.utils import (
     MetricMeter, AverageMeter, tolist_if_not, count_num_param, load_checkpoint,
@@ -63,6 +63,9 @@ class VLBaseLearner(TrainerX):
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
             output, image_features, text_features = self.model_inference(input)
+            #temp_calibrator =TempScaling(bias=False,device=self.device)
+            #temp_calibrator.fit(output, label)
+            #output = temp_calibrator.calibrate(output)
             self.evaluator.process(output, label, image_features, text_features)
 
         # Get logits and labels from evaluator

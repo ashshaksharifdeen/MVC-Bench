@@ -1,13 +1,13 @@
 #!/bin/bash
 export TOKENIZERS_PARALLELISM=false
 # CUDA
-GPU_ID="${1:-1}"
+GPU_ID="${1:-2}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 ############################################
 # DATA & EXP CONFIG
 ############################################
-DATA_DIR="/storagepool/Ashshak/DR"
-new_class_datasets=(aptos eyepacs messidor messidor_2)
+DATA_DIR=/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA   #"/storagepool/Ashshak/DR" #"/l/Ashshak/DATA" ##/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA #/storagepool/Ashshak/DR #/l/Ashshak/DATA
+new_class_datasets=(rsna18 covid) #(rsna18 covid) #(aptos eyepacs messidor messidor_2) #(rsna18 covid) #("rsna18" "covid") #(aptos eyepacs messidor messidor_2)
 seeds=(1 2 3)
 SHOTS=16
 # model
@@ -17,9 +17,28 @@ BACKBONE=vit_b32_medclip # ("rn50" "rn101" "vit_b32" "vit_b16" "vit_l14" "vit_b3
 TRAINERS=('CoOp_MedCLIP')
 
 # keywords for evaluation
-KEYWORDS=('accuracy' 'confidence' 'ece' 'mce' 'ace' 'ece_kde') 
+#KEYWORDS=('accuracy' 'confidence' 'ece' 'mce' 'ace' 'ece_kde') 
+KEYWORDS=(
+  'accuracy'
+  'confidence'
+  'ece'
+  'mce'
+  'ace'
+  'ece_kde'
+  'brier'
+  'brier_norm'
+  'toplabel_ece_macro'
+  'toplabel_ece_weighted'
+  'toplabel_ece_max'
+  'ovr_ece_macro'
+  'ovr_ece_weighted'
+  'ovr_ece_max'
+  'classwise_brier_macro'
+  'classwise_brier_norm_macro'
+)
 # Optional: calibration config JSON for log filename suffixes (leave empty if unused)
 CALIBRATION_CONFIG_JSON=""
+CAL_BINS=20
 # Example:
 # CALIBRATION_CONFIG_JSON='{"BASE_CALIBRATION_MODE": true, "SCALING_CONFIG": true, "SCALING_CALIBRATOR_NAME": "ts", "BIN_CALIBRATOR_NAME": "", "IF_DAC": false, "IF_PROCAL": false}'
 
@@ -102,7 +121,9 @@ for TRAINER in "${TRAINERS[@]}"; do
   for dataset in "${new_class_datasets[@]}"; do
     for seed in "${seeds[@]}"; do
       bash scripts/classification/all_fewshot_medclip.sh \
-        "$TRAINER" "$TRAINER_CFG" "$dataset" "$DATA_DIR" "$SHOTS" "$seed"
+        "$TRAINER" "$TRAINER_CFG" "$dataset" "$DATA_DIR" "$SHOTS" "$seed" "$CAL_BINS"
+        #"$TRAINER" "$TRAINER_CFG" "$dataset" "$DATA_DIR" "$SHOTS" "$seed"
+    
     done
   done
 

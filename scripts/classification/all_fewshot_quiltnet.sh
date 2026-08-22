@@ -15,7 +15,7 @@ SHOTS=$5
 SUB=all
 
 SEED=$6
-
+CAL_BINS="${7:-20}"
 # calirbation config
 CALIBRATION_CFG=$7
 
@@ -28,7 +28,7 @@ weights = '_'.join(str(config['TRAINER']['COOP']['LOSS'][loss]['WEIGHT']) for lo
 print(f'losses_{losses}_weights_{weights}')" 2>/dev/null)
 
 # Create directory with loss information
-DIR=/storagepool/Ashshak/output/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED}
+DIR=/storagepool/Ashshak/output_quiltnet/all/${DATASET}/shots_${SHOTS}/${TRAINER}/${CFG}/${LOSS_DIR}/seed${SEED}
 
 
 if [ -d "$DIR" ]; then
@@ -43,7 +43,8 @@ if [ -d "$DIR" ]; then
     DATASET.NUM_SHOTS ${SHOTS} \
     DATASET.SUBSAMPLE_CLASSES ${SUB} \
     MODEL.NAME "quiltnet" \
-    MODEL_ROOT "/home/ashashak/CalibPrompt/models"
+    MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
+    CALIBRATION.METRICS.ECE_BINS ${CAL_BINS} 
 else
     echo "Run this job and save the output to ${DIR}"
     python train.py \
@@ -56,5 +57,6 @@ else
     DATASET.NUM_SHOTS ${SHOTS} \
     DATASET.SUBSAMPLE_CLASSES ${SUB} \
     MODEL.NAME "quiltnet" \
-    MODEL_ROOT "/home/ashashak/CalibPrompt/models"
+    MODEL_ROOT "/home/ashashak/CalibPrompt/models" \
+    CALIBRATION.METRICS.ECE_BINS ${CAL_BINS} 
 fi
