@@ -2,7 +2,7 @@
 GPU_ID="${1:-2}"
 export CUDA_VISIBLE_DEVICES="$GPU_ID"
 # Base config
-DATA="/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA"  #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA" #"/storagepool/Ashshak/DR"
+DATA="/storagepool/Ashshak/DR" #"/home/abhishek/desktop/VLM_Cal/CalibPrompt/DATA" #"/storagepool/Ashshak/DR"
 TRAINER=HiCroPL
 CFG=vit_b16_c2_ep50_batch32_16ctx 
 SHOTS=16
@@ -10,7 +10,7 @@ LOADEP=50
 SUB=all
 #caltech101 food101 dtd ucf101 oxford_flowers oxford_pets fgvc_aircraft stanford_cars sun397 eurosat
 # List of datasets and seeds
-DATASETS=("kather" "digestpath")   #(aptos eyepacs messidor_2)
+DATASETS=(aptos eyepacs messidor_2) #("kather" "digestpath")   #(aptos eyepacs messidor_2)
 SEEDS=(1 2 3)
 
 # Loop through datasets and seeds
