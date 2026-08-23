@@ -263,52 +263,9 @@ class CustomCLIP(nn.Module): # Changed for ECCV
             loss_fn = LossRegistry.get_loss(loss_name)
             if loss_fn is not None:
                 # Handle different types of losses
-                if loss_name == 'AS':
-                    # Feature-based loss
-                    if text_features is not None:
-                        loss_value = loss_fn(text_features)
-                    else:
-                        continue
-
-                elif loss_name == 'EMBEDING_LOSS':
-                    # Feature-based loss
-                    if text_features is not None:
-                        loss_value = loss_fn(text_features)
-                    else:
-                        continue    
-                elif loss_name in ['FL', 'LS', 'SMAC']:
-                    # Losses that need config parameters
-                    loss_value = loss_fn(logits, label, cfg=self.cfg)
-                elif loss_name in ['ECCV_PENALTY', 'ECCV_ZS']:
-                    # Losses that need zero-shot logits
-                    loss_value = loss_fn(logits, label, zero_shot_logits=zero_shot_logits)
-                elif loss_name == 'TEXT_MOMENT_MATCHING':
-                    # Needs both tuned and zero-shot text features
-                    if text_features is None or zero_shot_text_features is None:
-                        print(f"WARNING: Required features missing for {loss_name}")
-                        continue
-                    loss_value = loss_fn(logits, label, text_features=text_features, 
-                                        zero_shot_text_features=zero_shot_text_features)
-                elif loss_name == 'MARGIN_MEAN_VAR':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)
-                elif loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT':
+                if loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT':
                     loss_value = loss_fn(logits,label,variance_mode="all_pairs")    
-                
-                elif loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_CB':
-                    loss_value = loss_fn(logits,label,variance_mode="all_pairs") 
-                elif loss_name == 'MARGIN_MEAN_VAR_PER_SAMPLE':
-                    loss_value, logs = loss_fn(logits, label, alpha=0.1, beta=0.01, clamp_var_min=0.0, reduction="mean")
-
-                elif loss_name == 'MDCA':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)  
-                elif loss_name == 'MBLS':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)
-                elif loss_name == 'LS':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)            
+                          
                 else:
                     # Standard losses
                     loss_value = loss_fn(logits, label)

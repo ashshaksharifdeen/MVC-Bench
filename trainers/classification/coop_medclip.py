@@ -224,28 +224,7 @@ class CustomCLIP(nn.Module):
             loss_fn = LossRegistry.get_loss(loss_name)
             if loss_fn is not None:
                 # Handle different types of losses
-                if loss_name == 'AS':
-                    # Feature-based loss
-                    if features is not None:
-                        loss_value = loss_fn(features)
-                    else:
-                        continue
-                elif loss_name in ['FL', 'LS', 'SMAC']:
-                    # Losses that need config parameters
-                    loss_value = loss_fn(logits, label, cfg=self.cfg)
-                elif loss_name in ['ECCV_PENALTY', 'ECCV_ZS']:
-                    # Losses that need zero-shot logits
-                    loss_value = loss_fn(logits, label, zero_shot_logits=zero_shot_logits)
-                elif loss_name == 'MDCA':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)  
-                elif loss_name == 'MBLS':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)
-                elif loss_name == 'LS':
-                    # Direct use with logits and labels
-                    loss_value = loss_fn(logits, label)
-                elif loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT':
+                if loss_name == 'MARGIN_MEAN_VAR_ALLCLASS_EXPLICIT':
                     loss_value = loss_fn(logits,label,variance_mode="all_pairs")       
                 
                 else:
