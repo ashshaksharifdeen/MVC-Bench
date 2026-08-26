@@ -1,6 +1,6 @@
 # MVC-Bench
 
-Official implementation of **MVC-Bench: Benchmarking Calibration of Medical Vision-Language Models**, accepted to Findings of EMNLP.
+Official implementation of **MVC-Bench: Benchmarking Calibration of Medical Vision-Language Models**, accepted to Findings of EMNLP 2026.
 
 MVC-Bench is a calibration-centric benchmark for medical image classification with vision-language models (VLMs) and medical VLMs. It evaluates whether predictive confidence remains reliable across backbones, medical modalities, domain shifts, prompt-tuning methods, hard-prompt templates, and random seeds.
 
