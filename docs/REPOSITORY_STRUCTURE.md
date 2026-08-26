@@ -46,8 +46,8 @@ MVC-Bench/
 ├── scripts/                      # experiment launchers/helpers
 │   ├── coop/                     # MaPLe-style CoOp launchers on main
 │   │   └── base2new_train_coop_datasets.sh
-│   ├── all_fewshot_medclip_new.sh # histo-xray only
-│   └── all_fewshot_plip_new.sh    # histo-xray only
+│   
+│   
 ├── med-vlms/                     # medical-backbone adapters, if vendored
 │   ├── medclip/
 │   ├── biomedclip/
