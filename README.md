@@ -236,14 +236,13 @@ MVC-Bench follows the MaPLe/Dassl configuration pattern: dataset registration, t
 Please cite the paper if MVC-Bench is useful in your work. Confirm the final ACL Anthology metadata before publication:
 
 ```bibtex
-@inproceedings{sharifdeen2026mvcbench,
-  title     = {{MVC-Bench}: Benchmarking Calibration of Medical Vision-Language Models},
-  author    = {Sharifdeen, Ashshak and Ahamed, Shihab Aaqil and Khan, Ufaq and
-               Munir, Muhammad Akhtar and Ibrahim, Sujair and
-               Ahamed, Mohamed Rafeek Mareer and Xie, Yutong and
-               Razzak, Imran and Khan, Muhammad Haris},
-  booktitle = {Findings of the Association for Computational Linguistics: EMNLP},
-  year      = {2026}
+@inproceedings{
+anonymous2026mvcbench,
+title={{MVC}-Bench: Benchmarking Calibration of Medical Vision-Language Models},
+author={Anonymous},
+booktitle={The 2026 Conference on Empirical Methods in Natural Language Processing},
+year={2026},
+url={https://openreview.net/forum?id=4DDcig293B}
 }
 ```
 
