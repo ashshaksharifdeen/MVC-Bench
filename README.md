@@ -84,7 +84,7 @@ Do not install all three dependency stacks into one Conda environment. PyTorch, 
 
 ## Installation: general CLIP backbones
 
-The main branch follows the official [MaPLe installation](https://github.com/muzairkhattak/multimodal-prompt-learning/blob/main/docs/INSTALL.md). The tested upstream stack uses Ubuntu 20.04, Python 3.8, PyTorch 1.9.0, torchvision 0.10.0, torchaudio 0.9.0, and CUDA 11.1 wheels.
+The main branch follows the official [MaPLe installation](https://github.com/muzairkhattak/multimodal-prompt-learning/blob/main/docs/INSTALL.md). 
 
 ### 1. Clone the main branch
 
