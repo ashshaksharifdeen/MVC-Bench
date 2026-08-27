@@ -116,8 +116,6 @@ python -m pip install -r requirements.txt
 python -m pip install setuptools==59.5.0
 ```
 
-If the branch uses NumPy-sensitive packages from the CalibPrompt preprocessing stack, use the tested `numpy==1.26.3` unless an existing lock file says otherwise. Resolve dependency conflicts in this environment only; do not modify `mvc-baple` to make PLIP/QuiltNet work.
-
 ### 4. Add model weights
 
 Following [CalibPrompt's model layout](https://github.com/iabh1shekbasu/CalibPrompt/blob/main/docs/MODELS.md):
@@ -129,25 +127,6 @@ model-weights/
 └── quiltnet/
     └── quiltnet_b32.pt
 ```
-
-Point `MODEL_ROOT` or its YAML equivalent to the directory containing these backbone subdirectories. Do not commit model binaries to Git.
-
-### 5. Verify the environment
-
-```bash
-python - <<'PY'
-import torch
-import torchvision
-import dassl
-print("torch:", torch.__version__)
-print("torchvision:", torchvision.__version__)
-print("CUDA available:", torch.cuda.is_available())
-print("CUDA runtime:", torch.version.cuda)
-print("Dassl import: OK")
-PY
-```
-
-Run one forward pass for PLIP and QuiltNet separately and confirm that the preprocessing transform matches the selected backbone.
 
 ## Dataset preparation
 
@@ -171,12 +150,10 @@ See [`docs/DATASETS_HISTO_XRAY.md`](docs/DATASETS_HISTO_XRAY.md) for dataset-spe
 ```bash
 conda activate baple
 cd /absolute/path/to/MVC-Bench-histo-xray
-bash scripts/all_fewshot_medclip_new.sh
+bash run/classification/fewshot/all_fewshot_medclip_new.sh
 ```
 
-Run this command from the repository root. The launcher belongs under `scripts/`, following the BAPLe medical-backbone layout; it should not be stored at repository root.
-
-Before the complete sweep, open `scripts/all_fewshot_medclip_new.sh` and verify:
+Before the complete sweep, open `run/classification/fewshot//all_fewshot_medclip_new.sh` and verify:
 
 - whether the current run selects MedCLIP or BioMedCLIP;
 - `DATA_ROOT`, `MODEL_ROOT`, and output root;
@@ -192,34 +169,12 @@ If the script hard-codes MedCLIP, create a clearly named BioMedCLIP configuratio
 ```bash
 conda activate dac
 cd /absolute/path/to/MVC-Bench-histo-xray
-bash scripts/all_fewshot_plip_new.sh
+bash run/classification/fewshot/all_fewshot_plip_new.sh
 ```
 
-Run this command from the repository root. Before the complete sweep, open `scripts/all_fewshot_plip_new.sh` and verify the same path and experiment variables, especially whether the selected configuration is PLIP or QuiltNet. If the script hard-codes PLIP, use a separate QuiltNet configuration or the branch's supported backbone argument.
+Run this command from the repository root. Before the complete sweep, open `run/classification/fewshot/all_fewshot_plip_new.sh` and verify the same path and experiment variables, especially whether the selected configuration is PLIP or QuiltNet. If the script hard-codes PLIP, use a separate QuiltNet configuration or the branch's supported backbone argument.
 
 See [`docs/HISTO_XRAY_FILE_PLACEMENT.md`](docs/HISTO_XRAY_FILE_PLACEMENT.md) for the exact launcher-move and documentation-copy commands.
-
-## Smoke-test protocol
-
-For each of the four medical backbones:
-
-1. select one dataset and one seed;
-2. resolve the dataset and model roots;
-3. instantiate the tokenizer, preprocessing transform, and model;
-4. load one batch and run a forward pass;
-5. complete a short train/evaluate cycle;
-6. confirm checkpoint creation and accuracy/ECE output;
-7. only then launch all shots, seeds, datasets, and calibration methods.
-
-## Reproducibility requirements
-
-- Use the same class-name order for images and text prompts.
-- Use validation data only for calibration/hyperparameter selection.
-- Report mean and standard deviation over seeds 1, 2, and 3.
-- Keep ID and DS outputs separate.
-- Record environment name/export, GPU, commit hash, command, and model-weight identifier.
-- Preserve raw datasets; preprocessing and split generation must be deterministic and documented.
-- Do not compare backbones using different class definitions or different test splits.
 
 ## Acknowledgements
 
