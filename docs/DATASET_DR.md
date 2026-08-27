@@ -11,7 +11,7 @@ This guide prepares the diabetic-retinopathy (DR) data used by MVC-Bench on the 
 | EyePACS | Domain shift | Keep labels aligned with the MVC-Bench class order |
 | Messidor-2 | Domain shift | Do not merge with Messidor |
 
-Obtain each dataset from its official distributor or from the data bundle referenced by SPSD-ViT. Dataset licenses may prohibit redistribution; MVC-Bench should therefore provide preparation code and links, not re-host protected images.
+Obtain each dataset from its official distributor or from the data bundle referenced by SPSD-ViT. 
 
 ## 1. Keep raw and processed data separate
 
