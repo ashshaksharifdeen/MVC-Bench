@@ -181,7 +181,7 @@ Before launching the full sweep, inspect the script and verify:
 - `N_CTX`, number of shots, seed list, output directory, and GPU selection;
 - base-to-new or ID-to-DS split semantics expected by the experiment.
 
-Paper-aligned defaults are 16 shots for CoOp, learning rate `0.005`, batch size `8`, and seeds `1`, `2`, and `3`. Treat the checked-in script/configuration as the executable source of truth and report any deliberate changes.
+Paper-aligned defaults are 16 shots for CoOp, learning rate `0.005`, and seeds `1`, `2`, and `3`. Treat the checked-in script/configuration as the executable source of truth and report any deliberate changes.
 
 For a smoke test, temporarily select one dataset, one backbone, and one seed. Check that training, checkpoint saving, test evaluation, and metric reporting all complete before starting the full grid.
 
@@ -210,7 +210,6 @@ For every run, report at least:
 - dataset, ID/DS role, prompt-tuning method, and calibration method;
 - MCE and ACE when reproducing the supplementary evaluation.
 
-For post-hoc temperature scaling, fit temperature on validation data only and apply the frozen value to the test set. Never fit a calibration parameter on the test split.
 
 Aggregate the three seeds using mean and standard deviation. A result directory should be uniquely identifiable from dataset, trainer, backbone, calibration method, shot count, and seed. See [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) for a recommended naming scheme and the configuration-to-execution flow.
 
