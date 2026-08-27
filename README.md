@@ -16,39 +16,6 @@ For the benchmark motivation, findings, complete author list, and citation, see 
 
 Do not run a backbone with the wrong environment merely because its module imports successfully. The upstream projects pin different Python, PyTorch, CUDA, OpenCLIP, and model-package versions.
 
-## Recommended directory layout
-
-```text
-workspace/
-├── MVC-Bench-main/                 # main branch; maple
-├── MVC-Bench-medclip-biomedclip/   # histo-xray branch; mvc-baple
-├── MVC-Bench-plip-quiltnet/        # histo-xray branch; mvc-dac
-├── med-datasets/
-│   ├── covid/
-│   ├── rsna18/
-│   ├── kather/
-│   ├── pannuke/
-│   └── digestpath/
-└── model-weights/
-    ├── medclip/
-    ├── biomedclip/
-    ├── plip/
-    └── quiltnet/
-```
-
-The two `histo-xray` checkouts may share read-only datasets and model weights through absolute paths or symbolic links. Keep output directories separate.
-
-## Clone two copies of this branch
-
-```bash
-git clone --branch histo-xray --single-branch \
-  https://github.com/ashshaksharifdeen/MVC-Bench.git \
-  MVC-Bench-medclip-biomedclip
-
-git clone --branch histo-xray --single-branch \
-  https://github.com/ashshaksharifdeen/MVC-Bench.git \
-  MVC-Bench-plip-quiltnet
-```
 
 ## Environment A: MedCLIP and BioMedCLIP
 
@@ -57,8 +24,8 @@ This environment follows [BAPLe](https://github.com/asif-hanif/baple), which use
 ### 1. Create the environment
 
 ```bash
-conda create -y -n mvc-baple python=3.8
-conda activate mvc-baple
+conda create -y -n baple python=3.8
+conda activate baple
 ```
 
 ### 2. Install the BAPLe stack
@@ -122,8 +89,8 @@ This environment follows the [DAC/CLIP_Calibration installation](https://github.
 ### 1. Create the environment and install PyTorch
 
 ```bash
-conda create -y -n mvc-dac python=3.10
-conda activate mvc-dac
+conda create -y -n dac python=3.10
+conda activate dac
 
 python -m pip install \
   torch==2.1.0 \
@@ -194,16 +161,6 @@ Dataset download and preprocessing follow [CalibPrompt](https://github.com/iabh1
 | Histopathology | DigestPath | Domain shift |
 | Histopathology | Kather | Domain shift |
 
-Use this common final layout:
-
-```text
-med-datasets/
-├── covid/images/{train,test}/<class_name>/
-├── rsna18/images/{train,test}/<class_name>/
-├── kather/images/{train,test}/<class_name>/
-├── pannuke/images/{train,test}/<class_name>/
-└── digestpath/images/{train,test}/<class_name>/
-```
 
 Each dataset directory also needs `classnames.txt`. The first MVC-Bench/Dassl run may create `preprocessed.pkl` and `split_fewshot/shot_<k>-seed_<s>.pkl`. Do not share a cache between datasets or between incompatible label mappings.
 
@@ -212,8 +169,8 @@ See [`docs/DATASETS_HISTO_XRAY.md`](docs/DATASETS_HISTO_XRAY.md) for dataset-spe
 ## Run MedCLIP/BioMedCLIP experiments
 
 ```bash
-conda activate mvc-baple
-cd /absolute/path/to/MVC-Bench-medclip-biomedclip
+conda activate baple
+cd /absolute/path/to/MVC-Bench-histo-xray
 bash scripts/all_fewshot_medclip_new.sh
 ```
 
@@ -233,8 +190,8 @@ If the script hard-codes MedCLIP, create a clearly named BioMedCLIP configuratio
 ## Run PLIP/QuiltNet experiments
 
 ```bash
-conda activate mvc-dac
-cd /absolute/path/to/MVC-Bench-plip-quiltnet
+conda activate dac
+cd /absolute/path/to/MVC-Bench-histo-xray
 bash scripts/all_fewshot_plip_new.sh
 ```
 
