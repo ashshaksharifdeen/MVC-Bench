@@ -144,7 +144,6 @@ print("Dassl import: OK")
 PY
 ```
 
-The paper's experiments used an NVIDIA RTX A6000. Other GPUs can be used, but memory limits may require a smaller batch size; record any deviation from the paper's batch size of 8.
 
 ## Dataset preparation: diabetic retinopathy
 
