@@ -77,8 +77,6 @@ The paper uses `alpha = 0.1` and `beta = 0.01`, selected using validation data o
 | Backbone | Branch | Required environment | Runner |
 |---|---|---|---|
 | CLIP ViT-B/16, ViT-B/32, RN50, RN101 | `main` | `maple` | `bash scripts/coop/base2new_train_coop_datasets.sh` |
-| MedCLIP, BioMedCLIP | `histo-xray` | `mvc-baple` | `bash scripts/all_fewshot_medclip_new.sh` |
-| PLIP, QuiltNet | `histo-xray` | `mvc-dac` | `bash scripts/all_fewshot_plip_new.sh` |
 
 Do not install all three dependency stacks into one Conda environment. PyTorch, Python, OpenCLIP, and Dassl versions differ across the upstream projects.
 
