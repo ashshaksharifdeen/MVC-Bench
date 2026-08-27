@@ -120,6 +120,7 @@ python -m pip install -r requirements.txt
 python setup.py develop
 cd ../MVC-Bench-main
 ```
+then replace the ```/Dassl.pytorch/dassl/evaluation/evaluator.py``` with our python file
 
 ### 4. Install MVC-Bench requirements
 
