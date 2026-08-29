@@ -153,7 +153,7 @@ cd /absolute/path/to/MVC-Bench-histo-xray
 bash run/classification/fewshot/all_fewshot_medclip_new.sh
 ```
 
-Before the complete sweep, open `run/classification/fewshot//all_fewshot_medclip_new.sh` and verify:
+Before the complete sweep, open `run/classification/fewshot/all_fewshot_medclip_new.sh` and verify:
 
 - whether the current run selects MedCLIP or BioMedCLIP;
 - `DATA_ROOT`, `MODEL_ROOT`, and output root;
